@@ -1,0 +1,54 @@
+# Monitoring overlay: Prometheus (metrics and alert rules), Alertmanager (alerts) and Grafana (dashboard).
+#   With development users:  docker compose -f docker-compose.yml -f docker-compose.ops.yml up -d
+#   With Keycloak:           set $env:CBRMS_PROM_CONFIG="prometheus.sso.yml", then add -f docker-compose.sso.yml as well
+#   Prometheus  http://localhost:9190     Alertmanager  http://localhost:9193     Grafana  http://localhost:3100 (admin / admin)
+# LOCAL DEVELOPMENT ONLY: fixed passwords, no TLS.
+services:
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    container_name: cbrms-prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=15d
+    volumes:
+      - ./ops/prometheus/${CBRMS_PROM_CONFIG:-prometheus.yml}:/etc/prometheus/prometheus.yml:ro
+      - ./ops/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - cbrms-prometheus:/prometheus
+    ports:
+      - "${CBRMS_PROMETHEUS_PORT:-9190}:9090"
+    networks:
+      - cbrms-net
+    restart: unless-stopped
+
+  alertmanager:
+    image: prom/alertmanager:v0.28.1
+    container_name: cbrms-alertmanager
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+    volumes:
+      - ./ops/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    ports:
+      - "${CBRMS_ALERTMANAGER_PORT:-9193}:9093"
+    networks:
+      - cbrms-net
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:11.6.0
+    container_name: cbrms-grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/cbrms-operations.json
+      GF_USERS_DEFAULT_THEME: light
+    volumes:
+      - ./ops/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./ops/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "${CBRMS_GRAFANA_PORT:-3100}:3000"
+    networks:
+      - cbrms-net
+    restart: unless-stopped
+
+volumes:
+  cbrms-prometheus:

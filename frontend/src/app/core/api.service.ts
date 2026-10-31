@@ -23,6 +23,7 @@ import {
   OutstandingReport,
   ChangeView,
   NoticeRow,
+  OpsSnapshot,
   Page,
   PlatformRow,
   Quotation,
@@ -103,6 +104,18 @@ export class ApiService {
 
   auditActions(): Observable<string[]> {
     return this.http.get<string[]>('/internal/v1/admin/audit/actions');
+  }
+
+  operations(): Observable<OpsSnapshot> {
+    return this.http.get<OpsSnapshot>('/internal/v1/admin/operations');
+  }
+
+  refreshOperations(): Observable<OpsSnapshot> {
+    return this.http.post<OpsSnapshot>('/internal/v1/admin/operations/refresh', {});
+  }
+
+  runInvariantCheck(): Observable<{ violations: number; casesOpened: number }> {
+    return this.http.post<{ violations: number; casesOpened: number }>('/internal/v1/admin/operations/invariant-check', {});
   }
 
   unallocatedPayments(): Observable<UnallocatedPayment[]> {

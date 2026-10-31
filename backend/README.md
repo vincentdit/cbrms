@@ -43,6 +43,7 @@ Built from the CBRMS planning package v2.1: Blueprint (02), SRS (04), Architectu
 | Audit search by person, action, record, date and correlation ID, with audited CSV export | FR28 | `audit/AuditSearchController` |
 | Read-only roles: FINANCE_VIEWER and AUDITOR (Internal Audit) see every Finance view and the audit trail; any POST under `/internal` needs PLATFORM, BILLING_OFFICER or BILL_APPROVER | NFR06 | `config/SecurityConfig` |
 | Refund of unallocated money (suspense or freed by a reversal) to the payer: payee recorded and masked in lists, amount reserved at once, maker-checker, bank reference closes the case. One view, `v_payment_unallocated`, defines unallocated money everywhere | FR18, AT10 | `refunds/RefundService`, `V12__payment_refunds_and_auditor.sql` |
+| Operations monitoring: Prometheus gauges (`cbrms_*`) for NFR09, an Operations snapshot for the console, a nightly invariant check that opens cases, backup heartbeats in `ops_heartbeat`, certificate expiry from PEM files or recorded dates | NFR09, FR27e, NFR04 | `ops/*`, `V13__operations.sql`, `/actuator/prometheus` (TECHNICAL_OPERATOR) |
 | Quoted services (CIAP consultancy): platform submits a quotation with milestones, Finance approves (maker-checker), bills price each milestone from the quotation, at most once. Quotation terms and milestones are frozen by database triggers | FR01, FR03, FR07 | `billing/QuotationService`, `V8__quotations.sql` |
 
 ## Next increments (not yet built)
@@ -167,6 +168,8 @@ Invoke-RestMethod -Method Post -Uri "$base/internal/v1/bills/$($b2.billId)/appro
 | `CBRMS_JWT_AUDIENCE` | Audience that tokens must carry in jwt mode (default `cbrms`; set by an audience mapper on each Keycloak client) |
 | `CBRMS_LOOKUP_PEPPER` | Secret mixed into stored one-time-code hashes. Set a long random value in production |
 | `cbrms.reconciliation.cron` | When the daily reconciliation runs (default 06:30, Dar es Salaam time) |
+| `CBRMS_BACKUP_EXPECTED`, `CBRMS_ARCHIVE_EXPECTED` | `true` where backups and WAL archiving must run, so their absence raises an alert (on in `prod`) |
+| `cbrms.ops.certificates` | Certificates to watch: `name` with `path` (PEM file) or `not-after` (yyyy-MM-dd) |
 | `cbrms.notifications.sender` | `log` records notices without sending. Replace it with the gateway adapter |
 | `CBRMS_GEPG_PROVIDER` | `gepg_provider.code` for this deployment |
 | `cbrms.webhook-keys.[keyId]` | HMAC keys for platform event delivery. Supply them from the secret store, never from Git |
@@ -191,6 +194,6 @@ src/main/java/tz/go/tirdo/cbrms/
   catalogue/    tariff resolution
   cases/ audit/ identity/ config/ common/
   reconciliation/ refunds/ notifications/ lookup/ reports/ admin/
-src/main/resources/db/migration   V1–V12 (PostgreSQL 18; uuidv7() shim for 13–17)
+src/main/resources/db/migration   V1–V13 (PostgreSQL 18; uuidv7() shim for 13–17)
 src/main/resources/db/seed        development seed (local and test profiles only)
 ```

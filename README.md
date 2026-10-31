@@ -10,6 +10,8 @@ TIRDO Central Billing and Revenue Management System: the shared service that iss
 | `docker-compose.yml` | The local stack: PostgreSQL, backend and console. Sign-in uses fixed development users. |
 | `docker-compose.sso.yml` | Overlay that adds Keycloak and switches the backend and console to single sign-on. |
 | `docker-compose.db-port.yml` | Optional overlay that publishes the database on port 55432. |
+| `docker-compose.ops.yml` | Optional monitoring overlay: Prometheus, Alertmanager and Grafana. |
+| `ops/` | Prometheus configuration and alert rules (with unit tests), Alertmanager, the Grafana dashboard and `RUNBOOKS.md`. |
 
 ## Start everything (PowerShell)
 
@@ -105,6 +107,28 @@ All of these work in both options. Use two browser profiles (or one normal and o
 9. **Check a bill (public).** Open http://localhost:8086/check and enter a control number.
    - The one-time code appears under **Client messages**, because local messages are recorded, not sent.
    - Enter the code to see the bill.
+
+## Monitoring and alerts
+
+CBRMS publishes its health at `/actuator/prometheus`. The figures include the oldest undelivered platform event, delays in control numbers, unapplied money, overdue cases, invariant violations, reconciliation lag, backup age, WAL archive lag and certificate expiry. The console's **Operations** page shows the same figures and alerts, using the NFR09 thresholds. Each alert names an owner and a runbook in `ops/RUNBOOKS.md`. A nightly check at 02:15 opens a case for every invariant violation.
+
+To add Prometheus, Alertmanager and Grafana with Keycloak:
+
+```powershell
+cd C:\dev\cbrms; $env:CBRMS_PROM_CONFIG = "prometheus.sso.yml"; docker compose -f docker-compose.yml -f docker-compose.sso.yml -f docker-compose.ops.yml up -d --build
+```
+
+With the development users instead (no Keycloak):
+
+```powershell
+cd C:\dev\cbrms; Remove-Item Env:CBRMS_PROM_CONFIG -ErrorAction SilentlyContinue; docker compose -f docker-compose.yml -f docker-compose.ops.yml up -d --build
+```
+
+- Grafana: http://localhost:3100 (`admin` / `admin`) opens on the **CBRMS operations** dashboard.
+- Prometheus: http://localhost:9190. Under **Status → Targets**, `cbrms` should be UP.
+- Alertmanager: http://localhost:9193. Locally, alerts appear only there. For production, set up email receivers in `ops/alertmanager/alertmanager.yml`.
+
+Backup and WAL archive alerts apply only where `CBRMS_BACKUP_EXPECTED` and `CBRMS_ARCHIVE_EXPECTED` are true (the `prod` profile turns both on). Backup jobs report each run by inserting a row into `ops_heartbeat`.
 
 ## Tests
 

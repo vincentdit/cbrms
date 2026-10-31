@@ -63,7 +63,9 @@ public class SecurityConfig {
                 User.withUsername("isicms").password("{noop}isicms-dev-secret").roles("PLATFORM").build(),
                 User.withUsername("finance.maker").password("{noop}maker-dev").roles("BILLING_OFFICER").build(),
                 User.withUsername("finance.approver").password("{noop}approver-dev").roles("BILL_APPROVER").build(),
-                User.withUsername("internal.auditor").password("{noop}auditor-dev").roles("AUDITOR").build());
+                User.withUsername("internal.auditor").password("{noop}auditor-dev").roles("AUDITOR").build(),
+                // Prometheus scrapes /actuator/prometheus as this user in basic mode
+                User.withUsername("monitoring").password("{noop}monitoring-dev").roles("TECHNICAL_OPERATOR").build());
     }
 
     @Bean

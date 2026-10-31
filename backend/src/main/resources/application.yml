@@ -34,6 +34,10 @@ management:
     health:
       probes:
         enabled: true
+  metrics:
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true      # p95 API latency for NFR01 (Grafana "API latency p95")
 
 cbrms:
   gepg:
@@ -59,7 +63,11 @@ cbrms:
   lookup:
     pepper: ${CBRMS_LOOKUP_PEPPER:local-development-pepper}   # set a long random secret in production
   security:
-    mode: ${CBRMS_SECURITY_MODE:jwt}    # jwt (Keycloak) in production; local and test profiles default to basic
+    mode: ${CBRMS_SECURITY_MODE:jwt}
+  ops:
+    backup-expected: ${CBRMS_BACKUP_EXPECTED:false}     # true in production: a missing or stale backup raises an alert
+    archive-expected: ${CBRMS_ARCHIVE_EXPECTED:false}   # true in production: WAL archive lag raises an alert
+    certificates: []                                    # name + path (PEM) or name + not-after (yyyy-MM-dd)    # jwt (Keycloak) in production; local and test profiles default to basic
 
 logging:
   pattern:

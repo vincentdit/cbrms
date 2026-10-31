@@ -1,0 +1,89 @@
+# Unit tests for alerts.yml:  promtool test rules ops/prometheus/alerts.test.yml
+rule_files:
+  - alerts.yml
+evaluation_interval: 30s
+tests:
+  # Undelivered event older than 5 minutes fires; under 5 minutes does not
+  - interval: 30s
+    input_series:
+      - series: 'cbrms_outbox_oldest_pending_seconds{job="cbrms",instance="cbrms-app:8085"}'
+        values: '0 100 200 290 310 340 370 400 430'
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: PlatformEventsDelayed
+        exp_alerts: []
+      - eval_time: 4m
+        alertname: PlatformEventsDelayed
+        exp_alerts:
+          - exp_labels: {severity: warning, owner: ictt-integration, job: cbrms, instance: "cbrms-app:8085"}
+            exp_annotations:
+              summary: Platform updates are delayed
+              description: "The oldest undelivered platform event is 7m 10s old (limit 5 minutes)."
+              runbook: RB-02 Event delivery delayed
+
+  # Backups are only required where backup-expected is on
+  - interval: 1m
+    input_series:
+      - series: 'cbrms_backup_age_seconds{job="cbrms",instance="a"}'
+        values: '-1x30'
+      - series: 'cbrms_backup_expected{job="cbrms",instance="a"}'
+        values: '0x30'
+      - series: 'cbrms_backup_age_seconds{job="cbrms",instance="b"}'
+        values: '90000x30'
+      - series: 'cbrms_backup_expected{job="cbrms",instance="b"}'
+        values: '1x30'
+    alert_rule_test:
+      - eval_time: 20m
+        alertname: BackupMissing
+        exp_alerts:
+          - exp_labels: {severity: critical, owner: ictt-infrastructure, job: cbrms, instance: b}
+            exp_annotations:
+              summary: No successful backup in 24 hours
+              description: The backup job has not recorded a successful backup in ops_heartbeat.
+              runbook: RB-05 Backup and archive
+
+  # Certificate tiers: 45 days -> 60-day warning only; 5 days -> critical only
+  - interval: 1m
+    input_series:
+      - series: 'cbrms_certificate_days_left{job="cbrms",instance="a",certificate="gepg-signing"}'
+        values: '45x5'
+      - series: 'cbrms_certificate_days_left{job="cbrms",instance="a",certificate="gepg-tls"}'
+        values: '5x5'
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: CertificateExpiresIn60Days
+        exp_alerts:
+          - exp_labels: {severity: warning, owner: ictt-integration, job: cbrms, instance: a, certificate: gepg-signing}
+            exp_annotations:
+              summary: "Certificate gepg-signing expires within 60 days"
+              description: "45 day(s) left. Start renewal (SOP-14)."
+              runbook: RB-06 Certificates (SOP-14)
+      - eval_time: 1m
+        alertname: CertificateExpiresIn30Days
+        exp_alerts: []
+      - eval_time: 1m
+        alertname: CertificateExpiresIn7Days
+        exp_alerts:
+          - exp_labels: {severity: critical, owner: ictt-integration, job: cbrms, instance: a, certificate: gepg-tls}
+            exp_annotations:
+              summary: "Certificate gepg-tls expires within 7 days"
+              description: "5 day(s) left. GePG messages will fail when it expires."
+              runbook: RB-06 Certificates (SOP-14)
+
+  # CBRMS down for 2 minutes
+  - interval: 30s
+    input_series:
+      - series: 'up{job="cbrms",instance="cbrms-app:8085"}'
+        values: '1 1 0 0 0 0 0 0'
+    alert_rule_test:
+      - eval_time: 1m30s
+        alertname: CbrmsDown
+        exp_alerts: []
+      - eval_time: 3m30s
+        alertname: CbrmsDown
+        exp_alerts:
+          - exp_labels: {severity: critical, owner: ictt-infrastructure, job: cbrms, instance: "cbrms-app:8085"}
+            exp_annotations:
+              summary: CBRMS is not answering
+              description: Prometheus cannot read CBRMS metrics. Payments from GePG may be failing (NFR04).
+              runbook: RB-00 Service down

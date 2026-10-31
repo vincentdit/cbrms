@@ -1,0 +1,22 @@
+# Prometheus for CBRMS, development users (basic) mode. The SSO overlay uses prometheus.sso.yml instead.
+global:
+  scrape_interval: 30s
+  evaluation_interval: 30s
+
+rule_files:
+  - /etc/prometheus/alerts.yml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ["alertmanager:9093"]
+
+scrape_configs:
+  - job_name: cbrms
+    metrics_path: /actuator/prometheus
+    # LOCAL DEVELOPMENT ONLY: the "monitoring" development user (role TECHNICAL_OPERATOR)
+    basic_auth:
+      username: monitoring
+      password: monitoring-dev
+    static_configs:
+      - targets: ["cbrms-app:8085"]

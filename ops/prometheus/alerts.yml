@@ -1,0 +1,137 @@
+# CBRMS alert rules. Thresholds are NFR09 (document 04); each alert names its owner and runbook (ops/RUNBOOKS.md).
+# The console's Operations page applies the same thresholds (OperationsMonitor.java).
+groups:
+  - name: cbrms-availability
+    rules:
+      - alert: CbrmsDown
+        expr: up{job="cbrms"} == 0
+        for: 2m
+        labels: {severity: critical, owner: ictt-infrastructure}
+        annotations:
+          summary: CBRMS is not answering
+          description: Prometheus cannot read CBRMS metrics. Payments from GePG may be failing (NFR04).
+          runbook: RB-00 Service down
+
+  - name: cbrms-financial-integrity
+    rules:
+      - alert: InvariantViolation
+        expr: cbrms_invariant_violations > 0
+        for: 5m
+        labels: {severity: critical, owner: ictt-and-finance}
+        annotations:
+          summary: A financial invariant is broken
+          description: "{{ $value }} row(s) in v_invariant_violations. Stop automated releases until explained."
+          runbook: RB-01 Invariant violation
+
+  - name: cbrms-integration
+    rules:
+      - alert: PlatformEventsDelayed
+        expr: cbrms_outbox_oldest_pending_seconds > 300
+        for: 1m
+        labels: {severity: warning, owner: ictt-integration}
+        annotations:
+          summary: Platform updates are delayed
+          description: "The oldest undelivered platform event is {{ $value | humanizeDuration }} old (limit 5 minutes)."
+          runbook: RB-02 Event delivery delayed
+      - alert: PlatformEventsFailed
+        expr: cbrms_event_deliveries_failed > 0
+        for: 1m
+        labels: {severity: warning, owner: ictt-integration}
+        annotations:
+          summary: Platform event delivery gave up
+          description: "{{ $value }} delivery(ies) exhausted their retries; the platform must recover them from the event feed."
+          runbook: RB-02 Event delivery delayed
+      - alert: ControlNumbersDelayed
+        expr: cbrms_awaiting_control_number_oldest_seconds > 900
+        for: 1m
+        labels: {severity: warning, owner: ictt-integration}
+        annotations:
+          summary: GePG control numbers are delayed
+          description: "A bill has waited {{ $value | humanizeDuration }} for a control number (limit 15 minutes)."
+          runbook: RB-03 GePG delays (SOP-02)
+      - alert: GepgOutcomeUnknown
+        expr: cbrms_bills_ack_unknown > 0
+        for: 30m
+        labels: {severity: warning, owner: ictt-integration}
+        annotations:
+          summary: GePG submission outcome unknown
+          description: "{{ $value }} bill(s) in AckUnknown for 30 minutes. Resolve by enquiry; never resubmit."
+          runbook: RB-03 GePG delays (SOP-02)
+
+  - name: cbrms-finance
+    rules:
+      - alert: ReconciliationBehind
+        # checked from 10:00 Dar es Salaam (07:00 UTC), after the 06:30 run
+        expr: cbrms_reconciliation_days_behind > 0 and on() hour() >= 7
+        for: 5m
+        labels: {severity: warning, owner: finance}
+        annotations:
+          summary: Reconciliation is behind
+          description: "{{ $value }} business day(s) have no GePG reconciliation run (NFR10)."
+          runbook: RB-04 Reconciliation (SOP-08)
+      - alert: ExceptionsOverdue
+        expr: cbrms_cases_overdue > 0
+        for: 1h
+        labels: {severity: info, owner: finance}
+        annotations:
+          summary: Exception cases are overdue
+          description: "{{ $value }} open case(s) are past their due date."
+          runbook: RB-04 Reconciliation (SOP-08)
+      - alert: ClientNoticesFailed
+        expr: cbrms_notices_failed > 0
+        for: 15m
+        labels: {severity: info, owner: ictt-and-customer-service}
+        annotations:
+          summary: Client SMS or email notices failed
+          description: "{{ $value }} notice(s) gave up. Financial records are unaffected."
+          runbook: RB-07 Client notices
+
+  - name: cbrms-recovery
+    rules:
+      - alert: WalArchiveBehind
+        expr: (cbrms_wal_archive_age_seconds > 300 or cbrms_wal_archive_age_seconds < 0) and on(instance) cbrms_wal_archive_expected == 1
+        for: 5m
+        labels: {severity: critical, owner: ictt-infrastructure}
+        annotations:
+          summary: WAL archiving is behind
+          description: Point-in-time recovery would lose more than the 1-minute RPO for payments (NFR05).
+          runbook: RB-05 Backup and archive
+      - alert: WalArchiveFailing
+        expr: delta(cbrms_wal_archive_failures[15m]) > 0
+        labels: {severity: critical, owner: ictt-infrastructure}
+        annotations:
+          summary: WAL archiving is failing
+          description: PostgreSQL reports failed archive attempts in the last 15 minutes.
+          runbook: RB-05 Backup and archive
+      - alert: BackupMissing
+        expr: (cbrms_backup_age_seconds > 86400 or cbrms_backup_age_seconds < 0) and on(instance) cbrms_backup_expected == 1
+        for: 15m
+        labels: {severity: critical, owner: ictt-infrastructure}
+        annotations:
+          summary: No successful backup in 24 hours
+          description: The backup job has not recorded a successful backup in ops_heartbeat.
+          runbook: RB-05 Backup and archive
+
+  - name: cbrms-certificates
+    rules:
+      - alert: CertificateExpiresIn60Days
+        expr: cbrms_certificate_days_left <= 60 and cbrms_certificate_days_left > 30
+        labels: {severity: warning, owner: ictt-integration}
+        annotations:
+          summary: "Certificate {{ $labels.certificate }} expires within 60 days"
+          description: "{{ $value }} day(s) left. Start renewal (SOP-14)."
+          runbook: RB-06 Certificates (SOP-14)
+      - alert: CertificateExpiresIn30Days
+        expr: cbrms_certificate_days_left <= 30 and cbrms_certificate_days_left > 7
+        labels: {severity: warning, owner: ictt-integration}
+        annotations:
+          summary: "Certificate {{ $labels.certificate }} expires within 30 days"
+          description: "{{ $value }} day(s) left. Renewal must be tested before cutover (SOP-14)."
+          runbook: RB-06 Certificates (SOP-14)
+      - alert: CertificateExpiresIn7Days
+        expr: cbrms_certificate_days_left <= 7
+        labels: {severity: critical, owner: ictt-integration}
+        annotations:
+          summary: "Certificate {{ $labels.certificate }} expires within 7 days"
+          description: "{{ $value }} day(s) left. GePG messages will fail when it expires."
+          runbook: RB-06 Certificates (SOP-14)

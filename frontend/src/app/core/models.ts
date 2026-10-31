@@ -519,3 +519,42 @@ export interface AuditQuery {
   object: string;
   correlationId: string;
 }
+
+export interface OpsAlert {
+  severity: 'critical' | 'warning' | 'info';
+  title: string;
+  detail: string;
+  owner: string;
+  runbook: string;
+}
+
+export interface OpsCertificate {
+  name: string;
+  notAfter: string | null;
+  daysLeft: number | null;
+  error: string | null;
+}
+
+export interface OpsSnapshot {
+  takenAt: string;
+  oldestPendingEventSeconds: number;
+  failedDeliveries: number;
+  oldestAwaitingControlNumberSeconds: number;
+  ackUnknown: number;
+  unallocatedPayments: number;
+  unallocatedAmount: string;
+  failedNotices: number;
+  openCases: number;
+  overdueCases: number;
+  invariantViolations: number;
+  lastReconciledDay: string | null;
+  reconciliationDaysBehind: number;
+  archiveExpected: boolean;
+  walArchiveAgeSeconds: number | null;
+  walArchiveFailures: number;
+  backupExpected: boolean;
+  backupAgeSeconds: number | null;
+  lastBackupOk: boolean | null;
+  certificates: OpsCertificate[];
+  alerts: OpsAlert[];
+}

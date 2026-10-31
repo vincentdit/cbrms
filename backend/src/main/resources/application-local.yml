@@ -11,6 +11,10 @@ cbrms:
     mode: simulator
     provider-code: SIM
     simulator-secret: local-simulator-secret
+  ops:
+    certificates:
+      - name: gepg-test-signing
+        not-after: "2027-03-31"      # placeholder until GePG issues the real test certificate
   webhook-keys:
     "[lims-dev]": lims-dev-hmac-key
     "[ciap-dev]": ciap-dev-hmac-key

@@ -9,6 +9,7 @@ Angular 22 console for TIRDO Finance staff:
 - **Quotations:** consultancy quotations with their milestones and which have been billed; approve or reject from the quotation.
 - **Catalogue:** services, prices in force, scheduled price changes and platforms; propose a new service, price, revenue codes or settings for a second officer to approve.
 - **Exceptions:** money not applied to any bill (move it to the right bill), and cases to take and close with a resolution.
+- **Operations:** alerts with owners and runbooks; delays, workload, backup and WAL archive age, and certificate expiry. Refreshes every 30 seconds.
 - **Audit trail:** search by person, action, record, date or correlation ID; download as CSV.
 - **Reconciliation:** daily runs, line-by-line results, run now, and sign-off.
 - **Refunds:** approved refunds to pay out; record the bank reference or a failure.

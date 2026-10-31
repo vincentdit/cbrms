@@ -9,6 +9,9 @@ spring:
     clean-disabled: true
 
 cbrms:
+  ops:
+    backup-expected: true
+    archive-expected: true
   gepg:
     mode: contract
     provider-code: ${CBRMS_GEPG_PROVIDER}

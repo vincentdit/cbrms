@@ -20,6 +20,7 @@ export const routes: Routes = [
       { path: 'reconciliation', loadComponent: () => import('./pages/reconciliation.page').then((m) => m.ReconciliationPage), title: 'Reconciliation | CBRMS' },
       { path: 'refunds', loadComponent: () => import('./pages/refunds.page').then((m) => m.RefundsPage), title: 'Refunds | CBRMS' },
       { path: 'reports', loadComponent: () => import('./pages/reports.page').then((m) => m.ReportsPage), title: 'Reports | CBRMS' },
+      { path: 'operations', loadComponent: () => import('./pages/operations.page').then((m) => m.OperationsPage), title: 'Operations | CBRMS' },
       { path: 'audit', loadComponent: () => import('./pages/audit.page').then((m) => m.AuditPageComponent), title: 'Audit trail | CBRMS' },
       { path: 'notices', loadComponent: () => import('./pages/notices.page').then((m) => m.NoticesPage), title: 'Client messages | CBRMS' },
       { path: 'cases', loadComponent: () => import('./pages/cases.page').then((m) => m.CasesPage), title: 'Exceptions | CBRMS' },

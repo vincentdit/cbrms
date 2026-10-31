@@ -1,0 +1,27 @@
+# Alertmanager for CBRMS. Locally alerts are only shown in the Alertmanager page (http://localhost:9193).
+# In production, add the receivers below with the real SMTP server and addresses.
+route:
+  receiver: console-only
+  group_by: [alertname]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+  routes:
+    - matchers: [severity="critical"]
+      receiver: console-only
+      repeat_interval: 1h
+
+receivers:
+  - name: console-only
+  # - name: finance-and-ictt
+  #   email_configs:
+  #     - to: ictt-operations@tirdo.example, finance-operations@tirdo.example
+  #       from: cbrms-alerts@tirdo.example
+  #       smarthost: smtp.tirdo.example:587
+  #       auth_username: cbrms-alerts@tirdo.example
+  #       auth_password_file: /run/secrets/smtp_password
+
+inhibit_rules:
+  # When CBRMS is down, every other CBRMS alert is a consequence
+  - source_matchers: [alertname="CbrmsDown"]
+    target_matchers: [severity=~"warning|info"]

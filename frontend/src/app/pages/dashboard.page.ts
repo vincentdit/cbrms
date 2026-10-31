@@ -2,7 +2,7 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { ApiService, describeError } from '../core/api.service';
 import { AuthService } from '../core/auth.service';
-import { Summary } from '../core/models';
+import { OpsSnapshot, Summary } from '../core/models';
 import { MoneyPipe, stateInfo } from '../shared/format';
 
 interface Task {
@@ -86,6 +86,7 @@ export class DashboardPage {
   private readonly api = inject(ApiService);
   private readonly auth = inject(AuthService);
   protected readonly summary = signal<Summary | null>(null);
+  private readonly ops = signal<OpsSnapshot | null>(null);
   protected readonly error = signal<string | null>(null);
   protected readonly partOfDay = (() => {
     const h = Number(new Intl.DateTimeFormat('en-GB', { hour: 'numeric', hourCycle: 'h23', timeZone: 'Africa/Dar_es_Salaam' }).format(new Date()));
@@ -108,6 +109,8 @@ export class DashboardPage {
       { count: s.failedDeliveries, title: 'Platform updates not delivered', detail: 'A platform has not received a payment update', link: '/cases', tone: 'alert' },
       { count: s.awaitingControlNumber, title: 'Waiting for control numbers', detail: 'Sent to GePG, no control number yet', link: '/bills', query: { registration: 'Submitted,AwaitingControlNumber' }, tone: 'action' },
     ];
+    const serious = (this.ops()?.alerts ?? []).filter((a) => a.severity !== 'info').length;
+    list.unshift({ count: serious, title: 'Operational alerts', detail: 'Delays, recovery or certificates need ICTT attention', link: '/operations', tone: 'alert' });
     return list.filter((t) => t.count > 0);
   });
 
@@ -122,5 +125,6 @@ export class DashboardPage {
 
   constructor() {
     this.api.summary().subscribe({ next: (s) => this.summary.set(s), error: (e) => this.error.set(describeError(e)) });
+    this.api.operations().subscribe({ next: (o) => this.ops.set(o), error: () => this.ops.set(null) });
   }
 }

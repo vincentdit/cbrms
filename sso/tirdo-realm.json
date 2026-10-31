@@ -172,6 +172,31 @@
           }
         }
       ]
+    },
+    {
+      "clientId": "monitoring",
+      "name": "Prometheus (reads /actuator/prometheus)",
+      "enabled": true,
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "monitoring-sso-dev-secret",
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "protocolMappers": [
+        {
+          "name": "cbrms-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.custom.audience": "cbrms",
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
     }
   ],
   "users": [
@@ -266,6 +291,15 @@
       "realmRoles": [
         "default-roles-tirdo",
         "PLATFORM"
+      ]
+    },
+    {
+      "username": "service-account-monitoring",
+      "enabled": true,
+      "serviceAccountClientId": "monitoring",
+      "realmRoles": [
+        "default-roles-tirdo",
+        "TECHNICAL_OPERATOR"
       ]
     }
   ]
