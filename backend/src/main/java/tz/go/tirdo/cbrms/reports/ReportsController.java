@@ -106,7 +106,7 @@ public class ReportsController {
     }
 
     /** RFC 4180 CSV. Text starting with = + - @ is prefixed with ' so spreadsheets never run it as a formula. */
-    static String toCsv(List<List<Object>> rows) {
+    public static String toCsv(List<List<Object>> rows) {
         StringBuilder out = new StringBuilder("﻿");
         for (List<Object> row : rows) {
             for (int i = 0; i < row.size(); i++) {

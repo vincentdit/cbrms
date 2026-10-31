@@ -43,7 +43,8 @@ public class AdminController {
     public record EventRow(long sequence, String type, String createdAt, String deliveryStatus, int attempts) {}
 
     public record CaseRow(String caseId, String type, String status, String billId, String sourceReference, String reference,
-                          String value, String currency, String details, String dueDate, String openedAt) {}
+                          String value, String currency, String details, String dueDate, String openedAt,
+                          String owner, String closureReason, String evidenceRef, String closedAt) {}
 
     /** kind: BILL, CANCELLATION, EXPIRY_CHANGE or REFUND. subjectId is what the decision endpoint takes. */
     public record ApprovalRow(String kind, String subjectId, String billId, String sourceSystem, String sourceReference, String payerName,
@@ -81,9 +82,11 @@ public class AdminController {
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("pendingApprovals", count("""
                 SELECT count(*) FROM approval a
-                 WHERE a.decision IS NULL AND a.subject_type IN ('BILL','CANCELLATION','EXPIRY_CHANGE','REFUND','QUOTATION')
+                 WHERE a.decision IS NULL AND a.subject_type IN ('BILL','CANCELLATION','EXPIRY_CHANGE','REFUND','QUOTATION','CATALOGUE','ADJUSTMENT')
                    AND (a.subject_type <> 'BILL' OR EXISTS (SELECT 1 FROM bill b WHERE b.id = a.subject_id AND b.preparation_state = 'AwaitingApproval'))
                    AND (a.subject_type <> 'QUOTATION' OR EXISTS (SELECT 1 FROM quotation q WHERE q.id = a.subject_id AND q.status = 'Requested'))
+                   AND (a.subject_type <> 'CATALOGUE' OR EXISTS (SELECT 1 FROM catalogue_change c WHERE c.id = a.subject_id AND c.status = 'Requested'))
+                   AND (a.subject_type <> 'ADJUSTMENT' OR EXISTS (SELECT 1 FROM correction_request r WHERE r.id = a.subject_id AND r.status = 'Requested'))
                 """));
         out.put("reconciliationToReview", count("SELECT count(*) FROM reconciliation_batch WHERE status = 'MATCHED'"));
         out.put("refundsToExecute", count("SELECT count(*) FROM refund_case WHERE status IN ('Approved','ExecutionFailed')"));
@@ -302,6 +305,38 @@ public class AdminController {
                   JOIN service v ON v.id = q.service_id
                   JOIN payer p ON p.id = q.payer_id
                  WHERE a.decision IS NULL AND a.subject_type = 'QUOTATION' AND q.status = 'Requested'
+                UNION ALL
+                SELECT 'CATALOGUE', c.id, NULL, 'catalogue', c.service_code, coalesce(sv.name, c.name),
+                       coalesce(c.unit_price, 0), 'TZS',
+                       CASE c.kind WHEN 'NEW_SERVICE' THEN 'New service' WHEN 'NEW_TARIFF' THEN 'New price'
+                                   WHEN 'NEW_REVENUE_MAPPING' THEN 'New revenue codes' ELSE 'Service settings' END,
+                       CASE c.kind
+                         WHEN 'NEW_TARIFF' THEN 'From ' || to_char(c.effective_from, 'DD Mon YYYY') || coalesce(', replacing TZS ' ||
+                              (SELECT t.unit_price::text FROM tariff_version t WHERE t.service_id = sv.id AND t.status = 'ACTIVE'
+                                 AND t.effective_period @> (now() AT TIME ZONE 'Africa/Dar_es_Salaam')::date LIMIT 1), '')
+                              || '. Authority: ' || c.approval_ref || '. ' || c.reason
+                         WHEN 'NEW_REVENUE_MAPPING' THEN 'GFS ' || c.gfs_code || ', account ' || c.accounting_code || ' from '
+                              || to_char(c.effective_from, 'DD Mon YYYY') || '. ' || c.reason
+                         ELSE c.reason END,
+                       u.display_name, a.created_at
+                  FROM approval a
+                  JOIN catalogue_change c ON c.id = a.subject_id
+                  JOIN app_user u ON u.id = a.maker_id
+                  LEFT JOIN service sv ON sv.code = c.service_code
+                 WHERE a.decision IS NULL AND a.subject_type = 'CATALOGUE' AND c.status = 'Requested'
+                UNION ALL
+                SELECT 'CORRECTION', r.id, b.id, s.code, b.source_reference, py.display_name, r.amount, b.currency, b.description,
+                       CASE r.kind WHEN 'ALLOCATE' THEN 'Move payment ' || p.external_transaction_id || ' to this bill: '
+                                   ELSE 'Reverse payment ' || p.external_transaction_id || ' from this bill: ' END || r.reason,
+                       u.display_name, a.created_at
+                  FROM approval a
+                  JOIN correction_request r ON r.id = a.subject_id
+                  JOIN payment p ON p.id = r.payment_id
+                  JOIN bill b ON b.id = r.bill_id
+                  JOIN source_system s ON s.id = b.source_system_id
+                  JOIN payer py ON py.id = b.payer_id
+                  JOIN app_user u ON u.id = a.maker_id
+                 WHERE a.decision IS NULL AND a.subject_type = 'ADJUSTMENT' AND r.status = 'Requested'
                  ORDER BY 12
                 """)
             .query((rs, n) -> new ApprovalRow(rs.getString(1), rs.getString(2), rs.getString(3), rs.getString(4), rs.getString(5),
@@ -321,9 +356,11 @@ public class AdminController {
 
     private List<CaseRow> cases(String status, UUID billId) {
         String sql = """
-                SELECT c.id, c.type, c.status, c.bill_id, b.source_reference, c.reference, c.value, c.currency, c.details, c.due_date, c.opened_at
+                SELECT c.id, c.type, c.status, c.bill_id, b.source_reference, c.reference, c.value, c.currency, c.details, c.due_date, c.opened_at,
+                       u.display_name, c.closure_reason, c.evidence_ref, c.closed_at
                   FROM exception_case c
                   LEFT JOIN bill b ON b.id = c.bill_id
+                  LEFT JOIN app_user u ON u.id = c.owner_id
                  WHERE (CAST(:billId AS uuid) IS NULL OR c.bill_id = CAST(:billId AS uuid))
                    AND (:status = '' OR :status = 'ALL' OR c.status = :status OR (:status = 'OPEN' AND c.status = 'IN_PROGRESS'))
                  ORDER BY c.opened_at DESC
@@ -335,7 +372,8 @@ public class AdminController {
             .query((rs, n) -> new CaseRow(rs.getString(1), rs.getString(2), rs.getString(3), rs.getString(4), rs.getString(5),
                     rs.getString(6), rs.getBigDecimal(7) == null ? null : rs.getBigDecimal(7).toPlainString(), rs.getString(8),
                     rs.getString(9), rs.getObject(10) == null ? null : String.valueOf(rs.getObject(10)),
-                    String.valueOf(rs.getObject(11, java.time.OffsetDateTime.class))))
+                    String.valueOf(rs.getObject(11, java.time.OffsetDateTime.class)), rs.getString(12), rs.getString(13), rs.getString(14),
+                    rs.getObject(15) == null ? null : String.valueOf(rs.getObject(15, java.time.OffsetDateTime.class))))
             .list();
     }
 

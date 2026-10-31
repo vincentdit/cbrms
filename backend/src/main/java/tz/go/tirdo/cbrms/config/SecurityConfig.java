@@ -9,6 +9,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.convert.converter.Converter;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -83,8 +84,11 @@ public class SecurityConfig {
                     a.requestMatchers("/sim/**").permitAll();
                 }
                 a.requestMatchers("/internal/v1/bills/*/approval", "/internal/v1/change-requests/*/decision",
-                        "/internal/v1/refunds/*/decision", "/internal/v1/quotations/*/decision").hasRole("BILL_APPROVER");
+                        "/internal/v1/refunds/*/decision", "/internal/v1/quotations/*/decision",
+                        "/internal/v1/catalogue-changes/*/decision", "/internal/v1/corrections/*/decision").hasRole("BILL_APPROVER");
                 a.requestMatchers("/internal/v1/events", "/internal/v1/events/**").hasRole("PLATFORM");
+                // FINANCE_VIEWER is read-only: every Finance action is a POST under /admin
+                a.requestMatchers(HttpMethod.POST, "/internal/v1/admin/**").hasAnyRole("BILLING_OFFICER", "BILL_APPROVER");
                 a.requestMatchers("/internal/v1/admin/**").hasAnyRole("BILLING_OFFICER", "BILL_APPROVER", "FINANCE_VIEWER");
                 a.requestMatchers("/internal/**").hasAnyRole(PLATFORM_OR_FINANCE);
                 a.requestMatchers("/actuator/**").hasRole("TECHNICAL_OPERATOR");

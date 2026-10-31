@@ -1,4 +1,5 @@
 import { Component, computed, effect, inject, input, signal, untracked } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { forkJoin } from 'rxjs';
 import { ApiService, describeError } from '../core/api.service';
@@ -11,7 +12,7 @@ import { DecisionComponent } from './decision.component';
 
 @Component({
   selector: 'app-bill-detail',
-  imports: [RouterLink, MoneyPipe, ControlNumberPipe, EatPipe, StateComponent, DecisionComponent, BillActionsComponent],
+  imports: [FormsModule, RouterLink, MoneyPipe, ControlNumberPipe, EatPipe, StateComponent, DecisionComponent, BillActionsComponent],
   template: `
     <p class="back"><a routerLink="/bills">Back to bills</a></p>
 
@@ -149,6 +150,9 @@ import { DecisionComponent } from './decision.component';
                     <th scope="col">Paid</th>
                     <th scope="col" class="num">Received</th>
                     <th scope="col" class="num">Applied to bill</th>
+                    @if (canCorrect()) {
+                      <th scope="col"><span class="visually-hidden">Actions</span></th>
+                    }
                   </tr>
                 </thead>
                 <tbody>
@@ -159,7 +163,36 @@ import { DecisionComponent } from './decision.component';
                       <td class="nowrap">{{ p.paidAt | eat }}</td>
                       <td class="num">{{ p.amount | money: b.currency }}</td>
                       <td class="num">{{ p.allocated | money: b.currency }}</td>
+                      @if (canCorrect()) {
+                        <td>
+                          @if (p.allocated !== '0' && p.allocated !== '0.00') {
+                            <button type="button" class="link-button" (click)="reversing.set(reversing() === p.paymentId ? null : p.paymentId)">Reverse</button>
+                          }
+                        </td>
+                      }
                     </tr>
+                    @if (reversing() === p.paymentId) {
+                      <tr>
+                        <td colspan="6">
+                          <form class="action-form" (ngSubmit)="reverse(p.paymentId)">
+                            <p>
+                              Reverse {{ p.allocated | money: b.currency }} of payment <span class="cn">{{ p.transactionId }}</span> from this bill.
+                              The original record is kept; the money becomes unallocated so it can be moved to the right bill or returned.
+                              @if (b.releaseState === 'Released') { <strong>The service has been released; {{ b.sourceSystem.toUpperCase() }} will be asked to review.</strong> }
+                            </p>
+                            <label [for]="'rev-' + p.paymentId">Why?</label>
+                            <textarea [id]="'rev-' + p.paymentId" name="why" rows="2" maxlength="500" [(ngModel)]="reverseReason" required></textarea>
+                            @if (reverseError()) {
+                              <p class="form-error" role="alert">{{ reverseError() }}</p>
+                            }
+                            <div class="actions">
+                              <button type="submit" class="danger" [disabled]="!reverseReason.trim()">Request reversal</button>
+                              <button type="button" (click)="reversing.set(null)">Cancel</button>
+                            </div>
+                          </form>
+                        </td>
+                      </tr>
+                    }
                   }
                 </tbody>
               </table>
@@ -234,6 +267,10 @@ export class BillDetailPage {
   protected readonly error = signal<string | null>(null);
   protected readonly done = signal<string | null>(null);
   protected readonly notices = signal<NoticeRow[]>([]);
+  protected readonly reversing = signal<string | null>(null);
+  protected readonly reverseError = signal<string | null>(null);
+  protected reverseReason = '';
+  protected readonly canCorrect = computed(() => this.auth.isOfficer() || this.auth.canApprove());
 
   protected readonly steps = computed(() => {
     const b = this.bill();
@@ -257,6 +294,18 @@ export class BillDetailPage {
 
   reload(): void {
     this.load(this.id());
+  }
+
+  protected reverse(paymentId: string): void {
+    this.reverseError.set(null);
+    this.api.requestCorrection('REVERSE', paymentId, this.id(), this.reverseReason.trim()).subscribe({
+      next: () => {
+        this.reversing.set(null);
+        this.reverseReason = '';
+        this.actionDone('Reversal requested. A bill approver must approve it under Approvals.');
+      },
+      error: (e) => this.reverseError.set(describeError(e)),
+    });
   }
 
   protected actionDone(message: string): void {

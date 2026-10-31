@@ -108,6 +108,10 @@ export const STATES: Record<string, StateInfo> = {
   // quotations and milestones
   Withdrawn: { label: 'Withdrawn', tone: 'quiet' },
   Billed: { label: 'Billed', tone: 'progress' },
+  Applied: { label: 'Applied', tone: 'ok' },
+  ACTIVE: { label: 'Active', tone: 'ok' },
+  INACTIVE: { label: 'Inactive', tone: 'quiet' },
+  RETIRED: { label: 'Retired', tone: 'quiet' },
 };
 
 export const RUN_REVIEW: Record<string, StateInfo> = {
@@ -129,6 +133,8 @@ export const APPROVAL_KINDS: Record<string, string> = {
   EXPIRY_CHANGE: 'New deadline',
   REFUND: 'Refund',
   QUOTATION: 'Quotation',
+  CATALOGUE: 'Catalogue',
+  CORRECTION: 'Correction',
 };
 
 export const CASE_TYPES: Record<string, string> = {
@@ -144,6 +150,7 @@ export const CASE_TYPES: Record<string, string> = {
   SECURITY: 'Message failed verification',
   CHANGE_OUTCOME_UNKNOWN: 'GePG change outcome unknown',
   REFUND_FAILED: 'Refund payout failed',
+  REVERSAL_AFTER_RELEASE: 'Payment reversed after service release',
 };
 
 export const EVENT_TYPES: Record<string, string> = {
@@ -155,6 +162,7 @@ export const EVENT_TYPES: Record<string, string> = {
   'payment.received': 'Payment received',
   'bill.cancelled': 'Bill cancelled',
   'bill.expiry.changed': 'Payment deadline changed',
+  'payment.reversed': 'Payment reversed',
 };
 
 export function stateInfo(state: string | null | undefined): StateInfo {

@@ -9,6 +9,8 @@ const NOUN: Record<ApprovalKind, string> = {
   EXPIRY_CHANGE: 'new deadline',
   REFUND: 'refund',
   QUOTATION: 'quotation',
+  CATALOGUE: 'change',
+  CORRECTION: 'correction',
 };
 
 /** Approve or reject any maker-checker item. The server refuses the maker's own request; the form says why. */

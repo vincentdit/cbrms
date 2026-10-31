@@ -22,11 +22,13 @@ import { SettingsService } from './core/settings.service';
           <a routerLink="/bills" routerLinkActive="active">Bills</a>
           <a routerLink="/approvals" routerLinkActive="active">Approvals</a>
           <a routerLink="/quotations" routerLinkActive="active">Quotations</a>
+          <a routerLink="/catalogue" routerLinkActive="active">Catalogue</a>
           <a routerLink="/cases" routerLinkActive="active">Exceptions</a>
           <a routerLink="/reconciliation" routerLinkActive="active">Reconciliation</a>
           <a routerLink="/refunds" routerLinkActive="active">Refunds</a>
           <a routerLink="/reports" routerLinkActive="active">Reports</a>
           <a routerLink="/notices" routerLinkActive="active">Client messages</a>
+          <a routerLink="/audit" routerLinkActive="active">Audit trail</a>
           @if (settings.settings().simulator) {
             <a routerLink="/simulator" routerLinkActive="active" class="nav-test">GePG simulator</a>
           }

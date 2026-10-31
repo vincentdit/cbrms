@@ -8,7 +8,16 @@ import {
   ApprovalRow,
   Bill,
   BillRow,
+  AuditPage,
+  AuditQuery,
   CaseRow,
+  Correction,
+  UnallocatedPayment,
+  CatalogueChange,
+  CatalogueDetail,
+  CatalogueProposal,
+  CatalogueService,
+  Directorate,
   CollectionsReport,
   GroupBy,
   OutstandingReport,
@@ -88,6 +97,50 @@ export class ApiService {
     return this.http.get<Quotation>(`/internal/v1/quotations/${id}`);
   }
 
+  audit(q: AuditQuery, page: number): Observable<AuditPage> {
+    return this.http.get<AuditPage>('/internal/v1/admin/audit', { params: { ...q, page, size: 50 } });
+  }
+
+  auditActions(): Observable<string[]> {
+    return this.http.get<string[]>('/internal/v1/admin/audit/actions');
+  }
+
+  unallocatedPayments(): Observable<UnallocatedPayment[]> {
+    return this.http.get<UnallocatedPayment[]>('/internal/v1/admin/payments/unallocated');
+  }
+
+  requestCorrection(kind: 'ALLOCATE' | 'REVERSE', paymentId: string, billId: string, reason: string, caseId?: string | null): Observable<Correction> {
+    return this.http.post<Correction>('/internal/v1/admin/corrections', { kind, paymentId, billId, reason, caseId: caseId ?? null });
+  }
+
+  corrections(status = ''): Observable<Correction[]> {
+    return this.http.get<Correction[]>('/internal/v1/admin/corrections', { params: status ? { status } : {} });
+  }
+
+  takeCase(id: string): Observable<unknown> {
+    return this.http.post(`/internal/v1/admin/cases/${id}/take`, {});
+  }
+
+  closeCase(id: string, resolution: string, evidenceRef: string | null): Observable<unknown> {
+    return this.http.post(`/internal/v1/admin/cases/${id}/close`, { resolution, evidenceRef });
+  }
+
+  catalogue(): Observable<CatalogueService[]> {
+    return this.http.get<CatalogueService[]>('/internal/v1/admin/catalogue');
+  }
+
+  catalogueService(code: string): Observable<CatalogueDetail> {
+    return this.http.get<CatalogueDetail>(`/internal/v1/admin/catalogue/services/${encodeURIComponent(code)}`);
+  }
+
+  proposeCatalogueChange(p: CatalogueProposal): Observable<CatalogueChange> {
+    return this.http.post<CatalogueChange>('/internal/v1/admin/catalogue/changes', p);
+  }
+
+  directorates(): Observable<Directorate[]> {
+    return this.http.get<Directorate[]>('/internal/v1/admin/directorates');
+  }
+
   platforms(): Observable<PlatformRow[]> {
     return this.http.get<PlatformRow[]>('/internal/v1/admin/platforms');
   }
@@ -116,6 +169,10 @@ export class ApiService {
         return this.http.post(`/internal/v1/bills/${subjectId}/approval`, body);
       case 'REFUND':
         return this.http.post(`/internal/v1/refunds/${subjectId}/decision`, body);
+      case 'CORRECTION':
+        return this.http.post(`/internal/v1/corrections/${subjectId}/decision`, body);
+      case 'CATALOGUE':
+        return this.http.post(`/internal/v1/catalogue-changes/${subjectId}/decision`, body);
       case 'QUOTATION':
         return this.http.post(`/internal/v1/quotations/${subjectId}/decision`, body);
       default:

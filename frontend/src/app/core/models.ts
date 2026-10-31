@@ -95,6 +95,10 @@ export interface CaseRow {
   details: string | null;
   dueDate: string | null;
   openedAt: string;
+  owner: string | null;
+  closureReason: string | null;
+  evidenceRef: string | null;
+  closedAt: string | null;
 }
 
 export interface CreditRow {
@@ -125,7 +129,7 @@ export interface Activity {
   credit: string;
 }
 
-export type ApprovalKind = 'BILL' | 'CANCELLATION' | 'EXPIRY_CHANGE' | 'REFUND' | 'QUOTATION';
+export type ApprovalKind = 'BILL' | 'CANCELLATION' | 'EXPIRY_CHANGE' | 'REFUND' | 'QUOTATION' | 'CATALOGUE' | 'CORRECTION';
 
 export interface ApprovalRow {
   /** What is being approved. subjectId is the bill, change request or refund ID the decision applies to. */
@@ -345,4 +349,168 @@ export interface Quotation {
   decidedAt: string | null;
   billed: string;
   milestones: QuotationMilestone[];
+}
+
+export type CatalogueKind = 'NEW_SERVICE' | 'NEW_TARIFF' | 'NEW_REVENUE_MAPPING' | 'SERVICE_UPDATE';
+
+export interface CatalogueService {
+  code: string;
+  name: string;
+  nameSw: string | null;
+  directorate: string;
+  unit: string;
+  quantityScale: number;
+  requiresApproval: boolean;
+  pricingBasis: 'TARIFF' | 'QUOTED';
+  status: 'ACTIVE' | 'INACTIVE';
+  platforms: string[];
+  currentPrice: string | null;
+  currentVersion: number | null;
+  paymentMode: string | null;
+  gfsCode: string | null;
+  nextPrice: string | null;
+  nextFrom: string | null;
+  pendingChangeId: string | null;
+}
+
+export interface TariffVersion {
+  version: number;
+  unitPrice: string;
+  paymentMode: string;
+  roundingRule: string;
+  maxValidityDays: number;
+  from: string;
+  to: string | null;
+  status: string;
+  approvalRef: string;
+  inEffect: boolean;
+}
+
+export interface RevenueMapping {
+  gfsCode: string;
+  accountingCode: string;
+  from: string;
+  to: string | null;
+  status: string;
+  approvalRef: string;
+  inEffect: boolean;
+}
+
+export interface CatalogueChange {
+  changeId: string;
+  kind: CatalogueKind;
+  serviceCode: string;
+  serviceName: string | null;
+  status: 'Requested' | 'Applied' | 'Rejected';
+  reason: string;
+  approvalRef: string | null;
+  requestedBy: string;
+  createdAt: string;
+  appliedAt: string | null;
+  currentPrice: string | null;
+  proposedPrice: string | null;
+  paymentMode: string | null;
+  effectiveFrom: string | null;
+  effectiveTo: string | null;
+  gfsCode: string | null;
+  accountingCode: string | null;
+  summary: string;
+}
+
+export interface CatalogueDetail {
+  service: CatalogueService;
+  tariffs: TariffVersion[];
+  mappings: RevenueMapping[];
+  changes: CatalogueChange[];
+}
+
+export interface Directorate {
+  code: string;
+  name: string;
+}
+
+/** Body of a catalogue proposal; which fields matter depends on kind. */
+export interface CatalogueProposal {
+  kind: CatalogueKind;
+  serviceCode: string;
+  reason: string;
+  approvalRef?: string | null;
+  name?: string | null;
+  nameSw?: string | null;
+  directorateCode?: string | null;
+  unit?: string | null;
+  quantityScale?: number | null;
+  requiresApproval?: boolean | null;
+  pricingBasis?: 'TARIFF' | 'QUOTED' | null;
+  serviceStatus?: 'ACTIVE' | 'INACTIVE' | null;
+  platforms?: string[] | null;
+  unitPrice?: string | null;
+  paymentMode?: string | null;
+  roundingRule?: string | null;
+  maxValidityDays?: number | null;
+  gfsCode?: string | null;
+  accountingCode?: string | null;
+  effectiveFrom?: string | null;
+  effectiveTo?: string | null;
+}
+
+export interface UnallocatedPayment {
+  paymentId: string;
+  transactionId: string;
+  controlNumber: string;
+  channel: string | null;
+  amount: string;
+  unallocated: string;
+  receivedAt: string;
+  caseId: string | null;
+  openCorrectionId: string | null;
+}
+
+export interface Correction {
+  correctionId: string;
+  kind: 'ALLOCATE' | 'REVERSE';
+  status: 'Requested' | 'Applied' | 'Rejected';
+  paymentId: string;
+  transactionId: string;
+  billId: string;
+  sourceSystem: string;
+  sourceReference: string;
+  payerName: string;
+  controlNumber: string | null;
+  amount: string;
+  reason: string;
+  caseId: string | null;
+  requestedBy: string;
+  createdAt: string;
+  appliedAt: string | null;
+}
+
+export interface AuditRow {
+  id: string;
+  occurredAt: string;
+  actor: string;
+  actorName: string | null;
+  action: string;
+  objectRef: string;
+  reason: string | null;
+  correlationId: string | null;
+  details: string | null;
+}
+
+export interface AuditPage {
+  items: AuditRow[];
+  total: number;
+  page: number;
+  size: number;
+  from: string;
+  to: string;
+}
+
+export interface AuditQuery {
+  from: string;
+  to: string;
+  actor: string;
+  action: string;
+  object: string;
+  correlationId: string;
 }
