@@ -52,6 +52,10 @@ export interface BillRow {
   dueDate: string;
   /** Everything the client has paid against this bill, including any excess held as credit. */
   paid: string;
+  /** Still owed (never negative). */
+  balance: string;
+  /** Excess held for the client as credit. */
+  credit: string;
 }
 
 export interface Page<T> {

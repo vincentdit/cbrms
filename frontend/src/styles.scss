@@ -307,3 +307,6 @@ main .link-button:hover { color: var(--teal); }
 form.filters .field { flex: 0 1 14rem; }
 @media (max-width: 40rem) { .check-facts div { grid-template-columns: 6.5rem minmax(0, 1fr); } }
 td.muted { color: var(--ink-soft); }
+.credit-note { color: #7a5a00; font-weight: 600; }
+table.data td.num, table.data th.num { white-space: nowrap; }
+table.data th.col-client { min-width: 12rem; }

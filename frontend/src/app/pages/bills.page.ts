@@ -64,10 +64,11 @@ import { StateComponent } from '../shared/state.component';
             <caption class="visually-hidden">Bills, newest first</caption>
             <thead>
               <tr>
-                <th scope="col">Client and reference</th>
+                <th scope="col" class="col-client">Client and reference</th>
                 <th scope="col">Control number</th>
                 <th scope="col" class="num">Amount</th>
                 <th scope="col" class="num">Paid</th>
+                <th scope="col" class="num">Balance</th>
                 <th scope="col">GePG</th>
                 <th scope="col">Payment</th>
                 <th scope="col">Created</th>
@@ -83,9 +84,19 @@ import { StateComponent } from '../shared/state.component';
                   <td class="cn">{{ b.controlNumber | controlNumber }}</td>
                   <td class="num">{{ b.total | money: b.currency }}</td>
                   <td class="num" [class.muted]="isZero(b.paid)">{{ b.paid | money: b.currency }}</td>
+                  @if (closed(b)) {
+                    <td class="num muted"><span class="visually-hidden">Not payable</span><span aria-hidden="true">—</span></td>
+                  } @else {
+                    <td class="num" [class.strong]="!isZero(b.balance)" [class.muted]="isZero(b.balance)">
+                      {{ b.balance | money: b.currency }}
+                      @if (!isZero(b.credit)) {
+                        <span class="sub credit-note">{{ b.credit | money: b.currency }} credit</span>
+                      }
+                    </td>
+                  }
                   <td><app-state [value]="b.preparationState === 'Approved' ? b.externalRegistrationStatus : b.preparationState" /></td>
                   <td><app-state [value]="b.collectionState" /></td>
-                  <td class="nowrap">{{ b.createdAt | eat }}</td>
+                  <td class="nowrap">{{ b.createdAt | eat: false }}<span class="sub">{{ time(b.createdAt) }}</span></td>
                 </tr>
               }
             </tbody>
@@ -139,6 +150,15 @@ export class BillsPage {
 
   protected isZero(v: string): boolean {
     return Number(v) === 0;
+  }
+
+  /** Cancelled, rejected or replaced bills are no longer payable, so a balance would mislead. */
+  protected closed(b: BillRow): boolean {
+    return b.externalRegistrationStatus === 'Cancelled' || ['Rejected', 'Superseded'].includes(b.preparationState);
+  }
+
+  protected time(v: string): string {
+    return new Intl.DateTimeFormat('en-GB', { timeZone: 'Africa/Dar_es_Salaam', hour: '2-digit', minute: '2-digit' }).format(new Date(v));
   }
 
   protected label(s: string): string {
