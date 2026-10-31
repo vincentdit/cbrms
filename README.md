@@ -19,7 +19,7 @@ TIRDO Central Billing and Revenue Management System: the shared service that iss
 cd C:\dev\cbrms; docker compose up -d --build
 ```
 
-- Console: http://localhost:8086. Sign in as `finance.approver` / `approver-dev` (can approve) or `finance.maker` / `maker-dev`.
+- Console: http://localhost:8086. Sign in as `finance.approver` / `approver-dev` (can approve), `finance.maker` / `maker-dev`, or `internal.auditor` / `auditor-dev` (Internal Audit: sees everything, changes nothing).
 - Backend API: http://localhost:8085. The LIMS development client is `lims` / `lims-dev-secret` (HTTP Basic).
 
 ### Option B: Keycloak single sign-on
@@ -100,7 +100,7 @@ All of these work in both options. Use two browser profiles (or one normal and o
    - To see a difference, first add a line on the **GePG simulator** page. Then sign the day off.
 5. **Client messages.** Every control number, payment, cancellation and new deadline queues a Kiswahili or English SMS or email. They are listed under **Client messages**. Locally, messages are recorded, not sent.
 6. **Change a price.** As `finance.maker`, open **Catalogue**, pick a service and choose **New price**, starting today or later with the Finance authority reference. As `finance.approver`, approve it under **Approvals**. Bills already issued keep their price; platforms see the new version at `GET /internal/v1/catalogue`.
-7. **Fix a misdirected payment.** In the simulator, pay an unknown control number: it lands under **Exceptions → Money not applied to any bill**. Choose **Move to a bill**, find the right bill and request the move; approve it as the other user. To undo a wrong allocation, use **Reverse** in a bill's Payments table.
+7. **Fix a misdirected payment.** In the simulator, pay an unknown control number: it lands under **Exceptions → Money not applied to any bill**. Choose **Move to a bill**, find the right bill and request the move; approve it as the other user. To undo a wrong allocation, use **Reverse** in a bill's Payments table. If the payer wants the money back instead, choose **Refund to payer**, approve it, then record the bank reference under **Refunds**; that closes the case.
 8. **Audit trail.** Every approval, correction and export above is searchable under **Audit trail**.
 9. **Check a bill (public).** Open http://localhost:8086/check and enter a control number.
    - The one-time code appears under **Client messages**, because local messages are recorded, not sent.

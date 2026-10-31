@@ -21,7 +21,7 @@
       },
       {
         "name": "FINANCE_VIEWER",
-        "description": "Read-only Finance access"
+        "description": "Read-only Finance access; changes nothing"
       },
       {
         "name": "PLATFORM",
@@ -30,6 +30,10 @@
       {
         "name": "TECHNICAL_OPERATOR",
         "description": "ICTT operations: monitoring endpoints"
+      },
+      {
+        "name": "AUDITOR",
+        "description": "Internal Audit: reads every Finance view and the audit trail; changes nothing"
       }
     ]
   },
@@ -207,6 +211,25 @@
       "realmRoles": [
         "default-roles-tirdo",
         "BILL_APPROVER"
+      ]
+    },
+    {
+      "username": "internal.auditor",
+      "firstName": "Baraka",
+      "lastName": "Lyimo",
+      "email": "internal.auditor@example.invalid",
+      "emailVerified": true,
+      "enabled": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "auditor-dev",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "default-roles-tirdo",
+        "AUDITOR"
       ]
     },
     {

@@ -13,7 +13,7 @@ import tz.go.tirdo.cbrms.common.ApiException;
 @Component
 public class Actors {
     public static final UUID SYSTEM_USER_ID = UUID.fromString("00000000-0000-7000-8000-0000000000aa");
-    private static final Set<String> FINANCE_ROLES = Set.of("ROLE_BILLING_OFFICER", "ROLE_BILL_APPROVER", "ROLE_FINANCE_VIEWER");
+    private static final Set<String> FINANCE_ROLES = Set.of("ROLE_BILLING_OFFICER", "ROLE_BILL_APPROVER", "ROLE_FINANCE_VIEWER", "ROLE_AUDITOR");
 
     private final JdbcClient jdbc;
 

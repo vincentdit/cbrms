@@ -109,6 +109,10 @@ export class ApiService {
     return this.http.get<UnallocatedPayment[]>('/internal/v1/admin/payments/unallocated');
   }
 
+  refundPayment(paymentId: string, amount: string, reason: string, payeeName: string, payeeAccount: string, caseId: string | null): Observable<unknown> {
+    return this.http.post(`/internal/v1/admin/payments/${paymentId}/refunds`, { amount, reason, payeeName, payeeAccount, caseId });
+  }
+
   requestCorrection(kind: 'ALLOCATE' | 'REVERSE', paymentId: string, billId: string, reason: string, caseId?: string | null): Observable<Correction> {
     return this.http.post<Correction>('/internal/v1/admin/corrections', { kind, paymentId, billId, reason, caseId: caseId ?? null });
   }

@@ -1,6 +1,8 @@
 package tz.go.tirdo.cbrms.refunds;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -62,6 +64,63 @@ public class RefundService {
         return refundId;
     }
 
+    /**
+     * Refund of a payment's unallocated money (suspense, or freed by a reversal) to the person who paid it.
+     * There is no bill or credit, so the payee and their account are recorded. The amount is reserved at once,
+     * so the same money cannot also be moved to a bill while the refund is open.
+     */
+    @Transactional
+    public UUID requestFromPayment(Actor maker, UUID paymentId, BigDecimal amount, String reason, String payeeName,
+                                   String payeeAccount, UUID caseId) {
+        record Pay(String tx, BigDecimal unallocated) {}
+        Pay p = jdbc.sql("""
+                SELECT p.external_transaction_id, u.unallocated
+                  FROM payment p JOIN v_payment_unallocated u ON u.payment_id = p.id
+                 WHERE p.id = :id FOR UPDATE OF p
+                """)
+            .param("id", paymentId)
+            .query((rs, n) -> new Pay(rs.getString(1), rs.getBigDecimal(2)))
+            .optional()
+            .orElseThrow(() -> ApiException.notFound("Payment not found"));
+        List<ApiException.FieldProblem> problems = new ArrayList<>();
+        if (amount == null || amount.signum() <= 0 || amount.scale() > 2 || amount.compareTo(p.unallocated()) > 0) {
+            problems.add(new ApiException.FieldProblem("amount", "more than zero and no more than the unallocated "
+                    + p.unallocated().toPlainString()));
+        }
+        if (reason == null || reason.isBlank()) {
+            problems.add(new ApiException.FieldProblem("reason", "a reason is required"));
+        }
+        if (payeeName == null || payeeName.isBlank() || payeeName.length() > 200) {
+            problems.add(new ApiException.FieldProblem("payeeName", "who receives the money, as on the bank or mobile account"));
+        }
+        if (payeeAccount == null || !payeeAccount.trim().matches("[A-Za-z0-9 +/-]{6,40}")) {
+            problems.add(new ApiException.FieldProblem("payeeAccount", "the bank account or mobile money number (6 to 40 characters)"));
+        }
+        if (!problems.isEmpty()) {
+            throw ApiException.validation("Validation failed", problems);
+        }
+        long open = jdbc.sql("SELECT count(*) FROM correction_request WHERE payment_id = :p AND status = 'Requested'")
+                .param("p", paymentId).query(Long.class).single();
+        if (open > 0) {
+            throw ApiException.conflict("CBR-COR-003", "A correction for payment " + p.tx() + " is waiting for approval; decide it first");
+        }
+        UUID refundId = jdbc.sql("""
+                INSERT INTO refund_case (payment_id, requested_amount, reason, requested_by, case_id, payee_name, payee_account)
+                VALUES (:payment, :amount, :reason, :by, :case, :name, :account) RETURNING id
+                """)
+            .param("payment", paymentId).param("amount", amount).param("reason", reason.trim()).param("by", maker.userId())
+            .param("case", caseId).param("name", payeeName.trim()).param("account", payeeAccount.trim())
+            .query(UUID.class).single();
+        jdbc.sql("INSERT INTO approval (subject_type, subject_id, maker_id) VALUES ('REFUND', :id, :maker)")
+            .param("id", refundId).param("maker", maker.userId()).update();
+        if (caseId != null) {
+            jdbc.sql("UPDATE exception_case SET status = 'IN_PROGRESS', owner_id = coalesce(owner_id, :me) WHERE id = :c AND status = 'OPEN'")
+                .param("me", maker.userId()).param("c", caseId).update();
+        }
+        audit.record(maker.subject(), "REFUND_REQUESTED", "payment:" + paymentId, reason, Map.of("refund", refundId.toString(), "amount", amount));
+        return refundId;
+    }
+
     @Transactional
     public void decide(Actor approver, UUID refundId, String decision, String reason) {
         record Open(String status, UUID maker, UUID billId) {}
@@ -99,14 +158,15 @@ public class RefundService {
     /** Records what the bank actually did. Executed needs the transfer reference (invariant I7). */
     @Transactional
     public void recordExecution(Actor officer, UUID refundId, String executionRef, String failureReason) {
-        record Approved(String status, UUID creditId, UUID billId, BigDecimal amount) {}
+        record Approved(String status, UUID creditId, UUID billId, BigDecimal amount, UUID caseId) {}
         Approved r = jdbc.sql("""
-                SELECT f.status, f.credit_balance_id, cb.bill_id, f.requested_amount
+                SELECT f.status, f.credit_balance_id, cb.bill_id, f.requested_amount, f.case_id
                   FROM refund_case f LEFT JOIN credit_balance cb ON cb.id = f.credit_balance_id
                  WHERE f.id = :id FOR UPDATE OF f
                 """)
             .param("id", refundId)
-            .query((rs, n) -> new Approved(rs.getString(1), rs.getObject(2, UUID.class), rs.getObject(3, UUID.class), rs.getBigDecimal(4)))
+            .query((rs, n) -> new Approved(rs.getString(1), rs.getObject(2, UUID.class), rs.getObject(3, UUID.class), rs.getBigDecimal(4),
+                    rs.getObject(5, UUID.class)))
             .optional()
             .orElseThrow(() -> ApiException.notFound("Refund not found"));
         if (!"Approved".equals(r.status()) && !"ExecutionFailed".equals(r.status())) {
@@ -121,6 +181,15 @@ public class RefundService {
                 .param("ref", executionRef.trim()).param("id", refundId).update();
             if (r.creditId() != null) {
                 jdbc.sql("UPDATE credit_balance SET status = 'REFUNDED' WHERE id = :id").param("id", r.creditId()).update();
+            }
+            if (r.caseId() != null) {
+                // the bank reference is the closure evidence for the unmatched-payment case
+                jdbc.sql("""
+                        UPDATE exception_case SET status = 'CLOSED', closed_at = now(), evidence_ref = :ref,
+                               closure_reason = 'Refunded to the payer (refund ' || :refund || ')'
+                         WHERE id = :c AND status <> 'CLOSED'
+                        """)
+                    .param("ref", executionRef.trim()).param("refund", refundId.toString()).param("c", r.caseId()).update();
             }
             audit.record(officer.subject(), "REFUND_EXECUTED", "bill:" + r.billId(), null, Map.of("refund", refundId.toString(), "reference", executionRef.trim()));
         } else {

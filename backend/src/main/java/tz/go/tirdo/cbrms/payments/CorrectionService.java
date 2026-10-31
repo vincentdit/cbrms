@@ -30,8 +30,9 @@ public class CorrectionService {
 
     public enum Kind { ALLOCATE, REVERSE }
 
+    /** openCorrectionId: a correction or refund of this money waiting for approval; refundsToPayOut: approved refunds not yet paid. */
     public record UnallocatedPayment(String paymentId, String transactionId, String controlNumber, String channel, String amount,
-                                     String unallocated, String receivedAt, String caseId, String openCorrectionId) {}
+                                     String unallocated, String receivedAt, String caseId, String openCorrectionId, long refundsToPayOut) {}
 
     public record CorrectionView(String correctionId, String kind, String status, String paymentId, String transactionId,
                                  String billId, String sourceSystem, String sourceReference, String payerName, String controlNumber,
@@ -286,18 +287,20 @@ public class CorrectionService {
                 SELECT p.id, p.external_transaction_id, p.control_number, p.channel, p.amount, u.unallocated, p.received_at,
                        (SELECT c.id FROM exception_case c WHERE c.type = 'UNMATCHED_PAYMENT' AND c.reference = p.external_transaction_id
                                                             AND c.status <> 'CLOSED' ORDER BY c.opened_at DESC LIMIT 1),
-                       (SELECT r.id FROM correction_request r WHERE r.payment_id = p.id AND r.status = 'Requested')
+                       coalesce((SELECT r.id::text FROM correction_request r WHERE r.payment_id = p.id AND r.status = 'Requested'),
+                                (SELECT f.id::text FROM refund_case f WHERE f.payment_id = p.id AND f.credit_balance_id IS NULL
+                                    AND f.status IN ('Requested','Reviewed'))),
+                       (SELECT count(*) FROM refund_case f WHERE f.payment_id = p.id AND f.credit_balance_id IS NULL
+                           AND f.status IN ('Approved','ExecutionFailed'))
                   FROM payment p
-                  CROSS JOIN LATERAL (SELECT p.amount
-                           - coalesce((SELECT sum(a.amount) FROM payment_allocation a WHERE a.payment_id = p.id), 0)
-                           - coalesce((SELECT sum(c.amount) FROM credit_balance c WHERE c.payment_id = p.id), 0) AS unallocated) u
+                  JOIN v_payment_unallocated u ON u.payment_id = p.id
                  WHERE u.unallocated > 0
                  ORDER BY p.received_at
                  LIMIT 200
                 """)
             .query((rs, n) -> new UnallocatedPayment(rs.getString(1), rs.getString(2), rs.getString(3), rs.getString(4),
                     rs.getBigDecimal(5).toPlainString(), rs.getBigDecimal(6).toPlainString(),
-                    String.valueOf(rs.getObject(7, java.time.OffsetDateTime.class)), rs.getString(8), rs.getString(9)))
+                    String.valueOf(rs.getObject(7, java.time.OffsetDateTime.class)), rs.getString(8), rs.getString(9), rs.getLong(10)))
             .list();
     }
 
@@ -337,10 +340,9 @@ public class CorrectionService {
 
     private Payment payment(UUID id, boolean lock) {
         return jdbc.sql("""
-                SELECT p.id, p.external_transaction_id, p.currency, p.amount,
-                       p.amount - coalesce((SELECT sum(a.amount) FROM payment_allocation a WHERE a.payment_id = p.id), 0)
-                                - coalesce((SELECT sum(c.amount) FROM credit_balance c WHERE c.payment_id = p.id), 0)
-                  FROM payment p WHERE p.id = :id
+                SELECT p.id, p.external_transaction_id, p.currency, p.amount, u.unallocated
+                  FROM payment p JOIN v_payment_unallocated u ON u.payment_id = p.id
+                 WHERE p.id = :id
                 """ + (lock ? " FOR UPDATE OF p" : ""))
             .param("id", id)
             .query((rs, n) -> new Payment(rs.getObject(1, UUID.class), rs.getString(2), rs.getString(3), rs.getBigDecimal(4),

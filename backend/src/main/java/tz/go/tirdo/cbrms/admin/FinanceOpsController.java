@@ -47,8 +47,14 @@ public class FinanceOpsController {
 
     public record ItemRow(String reference, String controlNumber, String amount, String currency, String matchStatus, String caseId) {}
 
+    /** billId is null for a refund of unallocated money; payeeAccount is masked. */
     public record RefundRow(String refundId, String status, String amount, String reason, String billId, String sourceReference,
-                            String payerName, String requestedBy, String executionRef, String failureReason, String createdAt) {}
+                            String payerName, String requestedBy, String executionRef, String failureReason, String createdAt,
+                            String transactionId, String payeeAccount) {}
+
+    public record PaymentRefundRequest(@NotNull @Positive BigDecimal amount, @NotBlank @Size(max = 500) String reason,
+                                       @NotBlank @Size(max = 200) String payeeName, @NotBlank @Size(max = 40) String payeeAccount,
+                                       UUID caseId) {}
 
     public record NoticeRow(String noticeId, String billId, String channel, String recipient, String template, String language,
                             String body, String status, String createdAt, String sentAt) {}
@@ -120,9 +126,12 @@ public class FinanceOpsController {
     public List<RefundRow> refundList(@RequestParam(defaultValue = "") String status) {
         finance();
         return jdbc.sql("""
-                SELECT f.id, f.status, f.requested_amount, f.reason, cb.bill_id, b.source_reference, p.display_name, u.display_name,
-                       f.execution_ref, f.failure_reason, f.created_at
+                SELECT f.id, f.status, f.requested_amount, f.reason, cb.bill_id, b.source_reference, coalesce(p.display_name, f.payee_name),
+                       u.display_name, f.execution_ref, f.failure_reason, f.created_at, py.external_transaction_id,
+                       CASE WHEN f.payee_account IS NULL THEN NULL
+                            ELSE repeat('*', greatest(length(f.payee_account) - 4, 0)) || right(f.payee_account, 4) END
                   FROM refund_case f
+                  JOIN payment py ON py.id = f.payment_id
                   LEFT JOIN credit_balance cb ON cb.id = f.credit_balance_id
                   LEFT JOIN bill b ON b.id = cb.bill_id
                   LEFT JOIN payer p ON p.id = b.payer_id
@@ -133,8 +142,15 @@ public class FinanceOpsController {
             .param("status", status)
             .query((rs, n) -> new RefundRow(rs.getString(1), rs.getString(2), rs.getBigDecimal(3).toPlainString(), rs.getString(4),
                     rs.getString(5), rs.getString(6), rs.getString(7), rs.getString(8), rs.getString(9), rs.getString(10),
-                    String.valueOf(rs.getObject(11, OffsetDateTime.class))))
+                    String.valueOf(rs.getObject(11, OffsetDateTime.class)), rs.getString(12), rs.getString(13)))
             .list();
+    }
+
+    @PostMapping("/admin/payments/{paymentId}/refunds")
+    public Map<String, String> refundPayment(@PathVariable UUID paymentId, @Valid @RequestBody PaymentRefundRequest body) {
+        Actor a = finance();
+        return Map.of("refundId", refunds.requestFromPayment(a, paymentId, body.amount(), body.reason(), body.payeeName(),
+                body.payeeAccount(), body.caseId()).toString(), "status", "Requested");
     }
 
     @PostMapping("/admin/refunds")

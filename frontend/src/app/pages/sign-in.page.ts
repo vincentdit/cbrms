@@ -23,7 +23,7 @@ import { SettingsService } from '../core/settings.service';
             {{ busy() ? 'Opening TIRDO sign-in…' : 'Sign in with TIRDO account' }}
           </button>
           @if (settings.settings().simulator) {
-            <p class="hint">Development accounts: <code>finance.maker</code> / maker-dev and <code>finance.approver</code> / approver-dev.</p>
+            <p class="hint">Development accounts: <code>finance.maker</code> / maker-dev, <code>finance.approver</code> / approver-dev and <code>internal.auditor</code> / auditor-dev (read-only).</p>
           }
         } @else {
         <form (ngSubmit)="submit()" #f="ngForm">
@@ -38,7 +38,7 @@ import { SettingsService } from '../core/settings.service';
         </form>
         @if (settings.settings().simulator) {
           <p class="hint">
-            Development users: <code>finance.maker</code> / maker-dev and <code>finance.approver</code> / approver-dev.
+            Development users: <code>finance.maker</code> / maker-dev, <code>finance.approver</code> / approver-dev and <code>internal.auditor</code> / auditor-dev (read-only).
           </p>
         }
         }

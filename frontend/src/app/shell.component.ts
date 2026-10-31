@@ -42,6 +42,11 @@ import { SettingsService } from './core/settings.service';
         </div>
       </header>
       <main id="main" tabindex="-1">
+        @if (auth.readOnly()) {
+          <p class="notice read-only-banner">
+            {{ auth.isAuditor() ? 'Auditor access' : 'Read-only access' }}: you can see everything here, but you cannot approve, request or change anything.
+          </p>
+        }
         @if (auth.me() && !auth.isFinance()) {
           <p class="notice notice-alert">
             You are signed in as a platform client. The console is for Finance staff; most pages will refuse access.

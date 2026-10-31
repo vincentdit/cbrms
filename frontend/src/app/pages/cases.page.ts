@@ -7,10 +7,11 @@ import { CaseRow, UnallocatedPayment } from '../core/models';
 import { CASE_TYPES, ControlNumberPipe, EatPipe, MoneyPipe } from '../shared/format';
 import { StateComponent } from '../shared/state.component';
 import { MoveToBillComponent } from './move-to-bill.component';
+import { RefundPaymentComponent } from './refund-payment.component';
 
 @Component({
   selector: 'app-cases',
-  imports: [FormsModule, RouterLink, MoneyPipe, EatPipe, ControlNumberPipe, StateComponent, MoveToBillComponent],
+  imports: [FormsModule, RouterLink, MoneyPipe, EatPipe, ControlNumberPipe, StateComponent, MoveToBillComponent, RefundPaymentComponent],
   template: `
     <header class="page-head">
       <h1>Exceptions</h1>
@@ -31,7 +32,7 @@ import { MoveToBillComponent } from './move-to-bill.component';
       @if (money.length > 0) {
         <section class="block" aria-labelledby="money-title">
           <h2 id="money-title">Money not applied to any bill</h2>
-          <p class="lede">Verified GePG payments in suspense, or freed by a reversal. Move each to the right bill, or return it to the payer and close its case with the bank reference.</p>
+          <p class="lede">Verified GePG payments in suspense, or freed by a reversal. Move each to the right bill, or refund it to the payer; the bank reference then closes its case.</p>
           <ul class="approval-list">
             @for (p of money; track p.paymentId) {
               <li>
@@ -43,13 +44,21 @@ import { MoveToBillComponent } from './move-to-bill.component';
                     @if (p.unallocated !== p.amount) { Part of a {{ p.amount | money }} payment. }
                   </span>
                 </div>
+                @if (p.refundsToPayOut > 0) {
+                  <p class="notice">Part of this payment is in an approved refund waiting for the bank reference (see Refunds).</p>
+                }
                 @if (p.openCorrectionId) {
-                  <p class="notice">A correction for this payment is waiting for approval.</p>
+                  <p class="notice">A correction or refund for this payment is waiting for approval.</p>
                 } @else if (canAct()) {
                   @if (moving() === p.paymentId) {
                     <app-move-to-bill [payment]="p" (done)="finished($event)" (cancel)="moving.set(null)" />
+                  } @else if (refunding() === p.paymentId) {
+                    <app-refund-payment [payment]="p" (done)="finished($event)" (cancel)="refunding.set(null)" />
                   } @else {
-                    <div class="actions"><button type="button" class="primary" (click)="moving.set(p.paymentId)">Move to a bill</button></div>
+                    <div class="actions">
+                      <button type="button" class="primary" (click)="moving.set(p.paymentId)">Move to a bill</button>
+                      <button type="button" (click)="refunding.set(p.paymentId)">Refund to payer</button>
+                    </div>
                   }
                 }
               </li>
@@ -149,6 +158,7 @@ export class CasesPage {
   protected readonly done = signal<string | null>(null);
   protected readonly busy = signal(false);
   protected readonly moving = signal<string | null>(null);
+  protected readonly refunding = signal<string | null>(null);
   protected readonly closing = signal<string | null>(null);
   protected readonly canAct = computed(() => this.auth.isOfficer() || this.auth.canApprove());
   protected resolution = '';
@@ -164,6 +174,7 @@ export class CasesPage {
 
   protected finished(message: string): void {
     this.moving.set(null);
+    this.refunding.set(null);
     this.done.set(message);
     this.load();
   }

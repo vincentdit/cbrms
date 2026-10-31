@@ -337,6 +337,16 @@ public class AdminController {
                   JOIN payer py ON py.id = b.payer_id
                   JOIN app_user u ON u.id = a.maker_id
                  WHERE a.decision IS NULL AND a.subject_type = 'ADJUSTMENT' AND r.status = 'Requested'
+                UNION ALL
+                SELECT 'REFUND', f.id, NULL, 'gepg', p.external_transaction_id, f.payee_name, f.requested_amount, p.currency,
+                       'Refund of unallocated money',
+                       'Pay back to ' || f.payee_name || ' (account ending ' || right(f.payee_account, 4) || '): ' || f.reason,
+                       u.display_name, a.created_at
+                  FROM approval a
+                  JOIN refund_case f ON f.id = a.subject_id AND f.credit_balance_id IS NULL
+                  JOIN payment p ON p.id = f.payment_id
+                  JOIN app_user u ON u.id = a.maker_id
+                 WHERE a.decision IS NULL AND a.subject_type = 'REFUND'
                  ORDER BY 12
                 """)
             .query((rs, n) -> new ApprovalRow(rs.getString(1), rs.getString(2), rs.getString(3), rs.getString(4), rs.getString(5),

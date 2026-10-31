@@ -217,13 +217,17 @@ export interface RefundRow {
   status: string;
   amount: string;
   reason: string;
-  billId: string;
-  sourceReference: string;
+  /** Null when unallocated money (no bill) is refunded. */
+  billId: string | null;
+  sourceReference: string | null;
   payerName: string;
   requestedBy: string;
   executionRef: string | null;
   failureReason: string | null;
   createdAt: string;
+  transactionId: string;
+  /** Masked, for example ******0111. */
+  payeeAccount: string | null;
 }
 
 export interface NoticeRow {
@@ -464,6 +468,7 @@ export interface UnallocatedPayment {
   receivedAt: string;
   caseId: string | null;
   openCorrectionId: string | null;
+  refundsToPayOut: number;
 }
 
 export interface Correction {

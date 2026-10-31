@@ -44,9 +44,17 @@ import { StateComponent } from '../shared/state.component';
             <li>
               <div class="approval-facts">
                 <app-state [value]="r.status" />
-                <a [routerLink]="['/bills', r.billId]" class="row-link">{{ r.payerName }}</a>
+                @if (r.billId) {
+                  <a [routerLink]="['/bills', r.billId]" class="row-link">{{ r.payerName }}</a>
+                } @else {
+                  <strong>{{ r.payerName }}</strong>
+                }
                 <span class="approval-amount">{{ r.amount | money }}</span>
-                <span class="sub">{{ r.reason }}. Bill {{ r.sourceReference }}, requested by {{ r.requestedBy }} on {{ r.createdAt | eat }}</span>
+                <span class="sub">
+                  {{ r.reason }}.
+                  @if (r.billId) { Bill {{ r.sourceReference }}, } @else { Unallocated money from GePG payment <span class="cn">{{ r.transactionId }}</span>, to account {{ r.payeeAccount }}, }
+                  requested by {{ r.requestedBy }} on {{ r.createdAt | eat }}
+                </span>
                 @if (r.executionRef) {
                   <span class="approval-detail">Bank reference {{ r.executionRef }}</span>
                 }

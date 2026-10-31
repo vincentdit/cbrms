@@ -50,8 +50,10 @@ import { DecisionComponent } from './decision.component';
                   <a [routerLink]="['/catalogue', a.sourceReference]" class="row-link">{{ a.payerName }}</a>
                 } @else if (a.billId) {
                   <a [routerLink]="['/bills', a.billId]" class="row-link">{{ a.payerName }}</a>
-                } @else {
+                } @else if (a.kind === 'QUOTATION') {
                   <a [routerLink]="['/quotations', a.subjectId]" class="row-link">{{ a.payerName }}</a>
+                } @else {
+                  <a routerLink="/refunds" class="row-link">{{ a.payerName }}</a>
                 }
                 @if (a.kind !== 'CATALOGUE' || a.total !== '0') {
                   <span class="approval-amount">{{ a.total | money: a.currency }}@if (a.kind === 'CATALOGUE') { <span class="sub">new price per unit</span>}</span>

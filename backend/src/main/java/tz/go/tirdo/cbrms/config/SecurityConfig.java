@@ -36,7 +36,9 @@ import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 @Configuration
 public class SecurityConfig {
 
-    static final String[] PLATFORM_OR_FINANCE = {"PLATFORM", "BILLING_OFFICER", "BILL_APPROVER", "FINANCE_VIEWER"};
+    static final String[] PLATFORM_OR_FINANCE = {"PLATFORM", "BILLING_OFFICER", "BILL_APPROVER", "FINANCE_VIEWER", "AUDITOR"};
+    /** Roles that may change anything. FINANCE_VIEWER and AUDITOR only read. */
+    static final String[] ACTORS = {"PLATFORM", "BILLING_OFFICER", "BILL_APPROVER"};
 
     @Bean
     @ConditionalOnProperty(name = "cbrms.security.mode", havingValue = "basic")
@@ -60,7 +62,8 @@ public class SecurityConfig {
                 User.withUsername("teltp").password("{noop}teltp-dev-secret").roles("PLATFORM").build(),
                 User.withUsername("isicms").password("{noop}isicms-dev-secret").roles("PLATFORM").build(),
                 User.withUsername("finance.maker").password("{noop}maker-dev").roles("BILLING_OFFICER").build(),
-                User.withUsername("finance.approver").password("{noop}approver-dev").roles("BILL_APPROVER").build());
+                User.withUsername("finance.approver").password("{noop}approver-dev").roles("BILL_APPROVER").build(),
+                User.withUsername("internal.auditor").password("{noop}auditor-dev").roles("AUDITOR").build());
     }
 
     @Bean
@@ -89,7 +92,9 @@ public class SecurityConfig {
                 a.requestMatchers("/internal/v1/events", "/internal/v1/events/**").hasRole("PLATFORM");
                 // FINANCE_VIEWER is read-only: every Finance action is a POST under /admin
                 a.requestMatchers(HttpMethod.POST, "/internal/v1/admin/**").hasAnyRole("BILLING_OFFICER", "BILL_APPROVER");
-                a.requestMatchers("/internal/v1/admin/**").hasAnyRole("BILLING_OFFICER", "BILL_APPROVER", "FINANCE_VIEWER");
+                a.requestMatchers("/internal/v1/admin/**").hasAnyRole("BILLING_OFFICER", "BILL_APPROVER", "FINANCE_VIEWER", "AUDITOR");
+                // Read-only roles cannot change anything elsewhere either (for example request a cancellation)
+                a.requestMatchers(HttpMethod.POST, "/internal/**").hasAnyRole(ACTORS);
                 a.requestMatchers("/internal/**").hasAnyRole(PLATFORM_OR_FINANCE);
                 a.requestMatchers("/actuator/**").hasRole("TECHNICAL_OPERATOR");
                 a.anyRequest().denyAll();

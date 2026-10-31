@@ -53,10 +53,9 @@ public class CaseWorkService {
         }
         if ("UNMATCHED_PAYMENT".equals(c.type()) && c.reference() != null && (evidenceRef == null || evidenceRef.isBlank())) {
             BigDecimal unallocated = jdbc.sql("""
-                    SELECT coalesce(max(p.amount
-                             - coalesce((SELECT sum(a.amount) FROM payment_allocation a WHERE a.payment_id = p.id), 0)
-                             - coalesce((SELECT sum(cb.amount) FROM credit_balance cb WHERE cb.payment_id = p.id), 0)), 0)
-                      FROM payment p WHERE p.external_transaction_id = :tx
+                    SELECT coalesce(max(u.unallocated), 0)
+                      FROM payment p JOIN v_payment_unallocated u ON u.payment_id = p.id
+                     WHERE p.external_transaction_id = :tx
                     """)
                 .param("tx", c.reference()).query(BigDecimal.class).single();
             if (unallocated.signum() > 0) {
