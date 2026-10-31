@@ -50,6 +50,8 @@ export interface BillRow {
   releaseState: string;
   createdAt: string;
   dueDate: string;
+  /** Everything the client has paid against this bill, including any excess held as credit. */
+  paid: string;
 }
 
 export interface Page<T> {

@@ -67,6 +67,7 @@ import { StateComponent } from '../shared/state.component';
                 <th scope="col">Client and reference</th>
                 <th scope="col">Control number</th>
                 <th scope="col" class="num">Amount</th>
+                <th scope="col" class="num">Paid</th>
                 <th scope="col">GePG</th>
                 <th scope="col">Payment</th>
                 <th scope="col">Created</th>
@@ -81,6 +82,7 @@ import { StateComponent } from '../shared/state.component';
                   </td>
                   <td class="cn">{{ b.controlNumber | controlNumber }}</td>
                   <td class="num">{{ b.total | money: b.currency }}</td>
+                  <td class="num" [class.muted]="isZero(b.paid)">{{ b.paid | money: b.currency }}</td>
                   <td><app-state [value]="b.preparationState === 'Approved' ? b.externalRegistrationStatus : b.preparationState" /></td>
                   <td><app-state [value]="b.collectionState" /></td>
                   <td class="nowrap">{{ b.createdAt | eat }}</td>
@@ -133,6 +135,10 @@ export class BillsPage {
         this.load(query);
       });
     });
+  }
+
+  protected isZero(v: string): boolean {
+    return Number(v) === 0;
   }
 
   protected label(s: string): string {

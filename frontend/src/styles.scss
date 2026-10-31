@@ -306,3 +306,4 @@ main .link-button { color: var(--teal-deep); font-weight: 600; }
 main .link-button:hover { color: var(--teal); }
 form.filters .field { flex: 0 1 14rem; }
 @media (max-width: 40rem) { .check-facts div { grid-template-columns: 6.5rem minmax(0, 1fr); } }
+td.muted { color: var(--ink-soft); }

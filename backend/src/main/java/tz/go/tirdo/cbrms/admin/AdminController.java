@@ -34,7 +34,7 @@ public class AdminController {
 
     public record BillRow(String billId, String sourceSystem, String sourceReference, String payerName, String total, String currency,
                           String controlNumber, String preparationState, String externalRegistrationStatus, String collectionState,
-                          String releaseState, String createdAt, String dueDate) {}
+                          String releaseState, String createdAt, String dueDate, String paid) {}
 
     public record Page<T>(List<T> items, long total, int page, int size) {}
 
@@ -171,7 +171,11 @@ public class AdminController {
         long total = countSpec.query(Long.class).single();
         JdbcClient.StatementSpec spec = jdbc.sql("""
                 SELECT b.id, s.code, b.source_reference, p.display_name, b.total, b.currency, e.control_number,
-                       b.preparation_state, b.registration_state, b.collection_state, b.release_state, b.created_at, b.due_date
+                       b.preparation_state, b.registration_state, b.collection_state, b.release_state, b.created_at, b.due_date,
+                       -- everything the client actually paid against this bill, including any excess held as credit
+                       coalesce((SELECT sum(py.amount) FROM payment py
+                                  WHERE py.id IN (SELECT payment_id FROM payment_allocation WHERE bill_id = b.id
+                                                  UNION SELECT payment_id FROM credit_balance WHERE bill_id = b.id)), 0)
                 """ + from + where + " ORDER BY b.created_at DESC LIMIT :limit OFFSET :offset");
         for (Map.Entry<String, Object> e : params.entrySet()) {
             spec = spec.param(e.getKey(), e.getValue());
@@ -180,7 +184,7 @@ public class AdminController {
                 .query((rs, n) -> new BillRow(rs.getString(1), rs.getString(2), rs.getString(3), rs.getString(4),
                         rs.getBigDecimal(5).toPlainString(), rs.getString(6), rs.getString(7), rs.getString(8), rs.getString(9),
                         rs.getString(10), rs.getString(11), String.valueOf(rs.getObject(12, java.time.OffsetDateTime.class)),
-                        String.valueOf(rs.getObject(13))))
+                        String.valueOf(rs.getObject(13)), rs.getBigDecimal(14).toPlainString()))
                 .list();
         return new Page<>(items, total, boundedPage, boundedSize);
     }
