@@ -1,0 +1,66 @@
+spring:
+  application:
+    name: cbrms
+  datasource:
+    url: ${CBRMS_DB_URL:jdbc:postgresql://localhost:55432/cbrms}
+    username: ${CBRMS_DB_USER:cbrms}
+    password: ${CBRMS_DB_PASSWORD:cbrms}
+  flyway:
+    locations: classpath:db/migration
+    connect-retries: 12            # survive a database that is still starting or briefly unreachable
+    connect-retries-interval: 5s
+  threads:
+    virtual:
+      enabled: true
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # Only tokens issued for CBRMS ("aud" contains this value) are accepted in jwt mode.
+          audiences: ${CBRMS_JWT_AUDIENCE:cbrms}
+
+server:
+  port: ${CBRMS_PORT:8085}
+  error:
+    include-stacktrace: never
+    include-message: never
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+cbrms:
+  gepg:
+    mode: contract                      # production adapter; local and test profiles use the simulator
+    provider-code: ${CBRMS_GEPG_PROVIDER:GEPG}
+    ack-unknown-escalation: PT30M       # SOP-02
+    control-number-escalation: PT60M    # SOP-02
+  events:
+    base-backoff: PT5S
+    max-backoff: PT15M
+    max-attempts: 12
+    lease: PT1M
+    batch-size: 50
+    cursor-safety-window: PT2S
+    http-timeout: PT10S
+  billing:
+    default-validity-days: 30
+    max-lines: 50
+    idempotency-retention: P7D
+  webhook-keys: {}                      # keyId -> secret, injected from the secret store in production
+  notifications:
+    sender: log                         # "log" records notices without sending; replace with the SMS/email gateway adapter
+  lookup:
+    pepper: ${CBRMS_LOOKUP_PEPPER:local-development-pepper}   # set a long random secret in production
+  security:
+    mode: ${CBRMS_SECURITY_MODE:jwt}    # jwt (Keycloak) in production; local and test profiles default to basic
+
+logging:
+  pattern:
+    correlation: "[%X{correlationId:-}] "

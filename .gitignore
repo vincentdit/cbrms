@@ -1,0 +1,18 @@
+# Build output
+backend/target/
+frontend/dist/
+frontend/.angular/
+frontend/node_modules/
+node_modules/
+
+# Transfer archives and local leftovers
+*.tar.gz
+*.zip
+
+# Local environment and editor files
+.env
+*.log
+.idea/
+*.iml
+.DS_Store
+Thumbs.db

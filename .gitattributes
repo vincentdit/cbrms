@@ -1,0 +1,10 @@
+# Keep Linux line endings for files used inside containers, whatever the checkout platform.
+* text=auto
+*.sh text eol=lf
+*.sql text eol=lf
+*.conf text eol=lf
+*.yml text eol=lf
+*.json text eol=lf
+Dockerfile text eol=lf
+*.jpg binary
+*.png binary

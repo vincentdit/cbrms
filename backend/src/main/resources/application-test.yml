@@ -1,0 +1,24 @@
+spring:
+  datasource:
+    url: ${CBRMS_TEST_DB_URL:jdbc:postgresql://localhost:55432/cbrms_test}
+    username: ${CBRMS_TEST_DB_USER:cbrms}
+    password: ${CBRMS_TEST_DB_PASSWORD:cbrms}
+  flyway:
+    locations: classpath:db/migration,classpath:db/seed
+    out-of-order: true      # seed scripts (V9xxx) sort after schema versions; lets new schema versions apply to an existing dev database
+    clean-disabled: false
+
+cbrms:
+  security:
+    mode: ${CBRMS_SECURITY_MODE:basic}
+  scheduling:
+    enabled: false        # tests drive the workers directly
+  gepg:
+    mode: simulator
+    provider-code: SIM
+    simulator-secret: test-simulator-secret
+  webhook-keys:
+    "[lims-dev]": lims-dev-hmac-key
+    "[ciap-dev]": ciap-dev-hmac-key
+    "[teltp-dev]": teltp-dev-hmac-key
+    "[isicms-dev]": isicms-dev-hmac-key

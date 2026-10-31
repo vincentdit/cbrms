@@ -1,0 +1,18 @@
+# LOCAL DEVELOPMENT ONLY: simulator, development users, seed data. Never use in production.
+spring:
+  flyway:
+    locations: classpath:db/migration,classpath:db/seed
+    out-of-order: true      # seed scripts (V9xxx) sort after schema versions; lets new schema versions apply to an existing dev database
+
+cbrms:
+  security:
+    mode: ${CBRMS_SECURITY_MODE:basic}
+  gepg:
+    mode: simulator
+    provider-code: SIM
+    simulator-secret: local-simulator-secret
+  webhook-keys:
+    "[lims-dev]": lims-dev-hmac-key
+    "[ciap-dev]": ciap-dev-hmac-key
+    "[teltp-dev]": teltp-dev-hmac-key
+    "[isicms-dev]": isicms-dev-hmac-key

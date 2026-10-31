@@ -1,0 +1,5 @@
+{
+  "/internal": { "target": "http://localhost:8085", "secure": false, "changeOrigin": true },
+  "/public": {"target": "http://localhost:8085", "secure": false},
+  "/sim": { "target": "http://localhost:8085", "secure": false, "changeOrigin": true }
+}

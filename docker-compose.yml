@@ -1,0 +1,67 @@
+# CBRMS local stack: PostgreSQL 18, the CBRMS backend (with GePG simulator) and the Finance console.
+#   Start or rebuild everything:  docker compose up -d --build
+#   Console:                      http://localhost:8086   (finance.approver / approver-dev)
+#   Backend API:                  http://localhost:8085
+#   Database from host (optional): docker compose -f docker-compose.yml -f docker-compose.db-port.yml up -d
+name: cbrms
+
+services:
+  postgres:
+    image: postgres:18
+    container_name: cbrms-postgres
+    hostname: cbrms-postgres
+    environment:
+      POSTGRES_DB: cbrms
+      POSTGRES_USER: cbrms
+      POSTGRES_PASSWORD: cbrms
+    # No host port: the backend and the test runner reach the database over cbrms-net.
+    volumes:
+      - cbrms-pgdata:/var/lib/postgresql
+      - ./backend/scripts/create-test-db.sql:/docker-entrypoint-initdb.d/10-create-test-db.sql:ro
+    networks:
+      cbrms-net:
+        aliases: [postgres]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cbrms -d cbrms"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  cbrms:
+    build: ./backend
+    image: tirdo/cbrms:local
+    container_name: cbrms-app
+    depends_on:
+      postgres:
+        condition: service_healthy
+        restart: true
+    environment:
+      SPRING_PROFILES_ACTIVE: local          # simulator and development users; never use in production
+      CBRMS_DB_URL: jdbc:postgresql://cbrms-postgres:5432/cbrms
+      CBRMS_DB_USER: cbrms
+      CBRMS_DB_PASSWORD: cbrms
+    ports:
+      - "${CBRMS_PORT:-8085}:8085"
+    networks:
+      - cbrms-net
+    extra_hosts:
+      - "host.docker.internal:host-gateway"   # lets CBRMS deliver events to a LIMS endpoint on your machine
+    restart: on-failure:5
+
+  console:
+    build: ./frontend
+    image: tirdo/cbrms-console:local
+    container_name: cbrms-console
+    depends_on:
+      - cbrms
+    ports:
+      - "${CBRMS_WEB_PORT:-8086}:80"
+    networks:
+      - cbrms-net
+
+networks:
+  cbrms-net:
+    name: cbrms-net
+
+volumes:
+  cbrms-pgdata:

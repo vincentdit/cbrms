@@ -1,0 +1,249 @@
+{
+  "realm": "tirdo",
+  "displayName": "TIRDO",
+  "enabled": true,
+  "sslRequired": "external",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "bruteForceProtected": true,
+  "accessTokenLifespan": 300,
+  "ssoSessionIdleTimeout": 1800,
+  "ssoSessionMaxLifespan": 36000,
+  "roles": {
+    "realm": [
+      {
+        "name": "BILLING_OFFICER",
+        "description": "Prepares bills, change requests and refunds; records refund execution"
+      },
+      {
+        "name": "BILL_APPROVER",
+        "description": "Approves bills, cancellations, expiry changes and refunds (second officer)"
+      },
+      {
+        "name": "FINANCE_VIEWER",
+        "description": "Read-only Finance access"
+      },
+      {
+        "name": "PLATFORM",
+        "description": "Machine role for source platforms such as LIMS"
+      },
+      {
+        "name": "TECHNICAL_OPERATOR",
+        "description": "ICTT operations: monitoring endpoints"
+      }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "cbrms-console",
+      "name": "CBRMS Finance console",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "implicitFlowEnabled": false,
+      "serviceAccountsEnabled": false,
+      "redirectUris": [
+        "http://localhost:8086/*",
+        "http://localhost:4200/*"
+      ],
+      "webOrigins": [
+        "+"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "+"
+      },
+      "protocolMappers": [
+        {
+          "name": "cbrms-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.custom.audience": "cbrms",
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "lims",
+      "name": "LIMS platform (machine client)",
+      "enabled": true,
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "lims-sso-dev-secret",
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "protocolMappers": [
+        {
+          "name": "cbrms-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.custom.audience": "cbrms",
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "ciap",
+      "name": "CIAP: Consultancy & Industrial Advisory Portal (machine client)",
+      "enabled": true,
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "ciap-sso-dev-secret",
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "protocolMappers": [
+        {
+          "name": "cbrms-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.custom.audience": "cbrms",
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "teltp",
+      "name": "TeLTP: TIRDO e-Learning and Training Platform (machine client)",
+      "enabled": true,
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "teltp-sso-dev-secret",
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "protocolMappers": [
+        {
+          "name": "cbrms-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.custom.audience": "cbrms",
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "isicms",
+      "name": "ISICMS: Innovation, Startup Incubation and Commercialization Management System (machine client)",
+      "enabled": true,
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "isicms-sso-dev-secret",
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "protocolMappers": [
+        {
+          "name": "cbrms-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.custom.audience": "cbrms",
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "finance.maker",
+      "firstName": "Asha",
+      "lastName": "Mwakyusa",
+      "email": "finance.maker@example.invalid",
+      "emailVerified": true,
+      "enabled": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "maker-dev",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "default-roles-tirdo",
+        "BILLING_OFFICER"
+      ]
+    },
+    {
+      "username": "finance.approver",
+      "firstName": "Neema",
+      "lastName": "Mushi",
+      "email": "finance.approver@example.invalid",
+      "emailVerified": true,
+      "enabled": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "approver-dev",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "default-roles-tirdo",
+        "BILL_APPROVER"
+      ]
+    },
+    {
+      "username": "service-account-lims",
+      "enabled": true,
+      "serviceAccountClientId": "lims",
+      "realmRoles": [
+        "default-roles-tirdo",
+        "PLATFORM"
+      ]
+    },
+    {
+      "username": "service-account-ciap",
+      "enabled": true,
+      "serviceAccountClientId": "ciap",
+      "realmRoles": [
+        "default-roles-tirdo",
+        "PLATFORM"
+      ]
+    },
+    {
+      "username": "service-account-teltp",
+      "enabled": true,
+      "serviceAccountClientId": "teltp",
+      "realmRoles": [
+        "default-roles-tirdo",
+        "PLATFORM"
+      ]
+    },
+    {
+      "username": "service-account-isicms",
+      "enabled": true,
+      "serviceAccountClientId": "isicms",
+      "realmRoles": [
+        "default-roles-tirdo",
+        "PLATFORM"
+      ]
+    }
+  ]
+}

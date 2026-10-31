@@ -1,0 +1,6 @@
+{
+  "simulator": true,
+  "authMode": "oidc",
+  "environmentLabel": "Local development with Keycloak and GePG simulator",
+  "oidc": { "url": "http://localhost:8190", "realm": "tirdo", "clientId": "cbrms-console" }
+}

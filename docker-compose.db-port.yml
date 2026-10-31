@@ -1,0 +1,7 @@
+# Optional: publish PostgreSQL to the host for pgAdmin or DBeaver.
+# Pick a free port with CBRMS_PG_PORT (default 55432), for example:
+#   $env:CBRMS_PG_PORT = "55432"; docker compose -f docker-compose.yml -f docker-compose.db-port.yml up -d
+services:
+  postgres:
+    ports:
+      - "${CBRMS_PG_PORT:-55432}:5432"

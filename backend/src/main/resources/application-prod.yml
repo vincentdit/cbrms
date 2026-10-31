@@ -1,0 +1,14 @@
+# Production: Keycloak JWTs, contract GePG adapter, secrets from the environment or secret store.
+spring:
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${CBRMS_OIDC_ISSUER}
+  flyway:
+    clean-disabled: true
+
+cbrms:
+  gepg:
+    mode: contract
+    provider-code: ${CBRMS_GEPG_PROVIDER}

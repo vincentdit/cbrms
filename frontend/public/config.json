@@ -1,0 +1,5 @@
+{
+  "simulator": true,
+  "authMode": "basic",
+  "environmentLabel": "Local development with GePG simulator"
+}
