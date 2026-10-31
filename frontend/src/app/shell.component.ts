@@ -21,6 +21,7 @@ import { SettingsService } from './core/settings.service';
           <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">Today</a>
           <a routerLink="/bills" routerLinkActive="active">Bills</a>
           <a routerLink="/approvals" routerLinkActive="active">Approvals</a>
+          <a routerLink="/quotations" routerLinkActive="active">Quotations</a>
           <a routerLink="/cases" routerLinkActive="active">Exceptions</a>
           <a routerLink="/reconciliation" routerLinkActive="active">Reconciliation</a>
           <a routerLink="/refunds" routerLinkActive="active">Refunds</a>

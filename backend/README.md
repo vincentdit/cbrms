@@ -37,6 +37,7 @@ Built from the CBRMS planning package v2.1: Blueprint (02), SRS (04), Architectu
 | Collections report by platform, service or GFS code for a date range: received = applied + credit + suspense. Multi-line bills are shared across lines in proportion to line totals, to the cent | BR reporting | `reports/ReportService`, `GET /internal/v1/admin/reports/collections[.csv]` |
 | Outstanding balances aged by days past due (not yet due, 1–30, 31–60, 61–90, over 90), with every bill in the CSV | BR reporting | `GET /internal/v1/admin/reports/outstanding[.csv]` |
 | CSV export: UTF-8 with BOM for Excel, formula-injection safe, each export audited | FR28 | `reports/ReportsController` |
+| Quoted services (CIAP consultancy): platform submits a quotation with milestones, Finance approves (maker-checker), bills price each milestone from the quotation, at most once. Quotation terms and milestones are frozen by database triggers | FR01, FR03, FR07 | `billing/QuotationService`, `V8__quotations.sql` |
 
 ## Next increments (not yet built)
 
@@ -184,6 +185,6 @@ src/main/java/tz/go/tirdo/cbrms/
   catalogue/    tariff resolution
   cases/ audit/ identity/ config/ common/
   reconciliation/ refunds/ notifications/ lookup/ reports/ admin/
-src/main/resources/db/migration   V1–V7 (PostgreSQL 18; uuidv7() shim for 13–17)
+src/main/resources/db/migration   V1–V8 (PostgreSQL 18; uuidv7() shim for 13–17)
 src/main/resources/db/seed        development seed (local and test profiles only)
 ```

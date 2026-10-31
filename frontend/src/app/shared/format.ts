@@ -105,6 +105,9 @@ export const STATES: Record<string, StateInfo> = {
   UNMATCHED: { label: 'Not matched', tone: 'alert' },
   // notices
   SENT: { label: 'Sent', tone: 'ok' },
+  // quotations and milestones
+  Withdrawn: { label: 'Withdrawn', tone: 'quiet' },
+  Billed: { label: 'Billed', tone: 'progress' },
 };
 
 export const RUN_REVIEW: Record<string, StateInfo> = {
@@ -125,6 +128,7 @@ export const APPROVAL_KINDS: Record<string, string> = {
   CANCELLATION: 'Cancel bill',
   EXPIRY_CHANGE: 'New deadline',
   REFUND: 'Refund',
+  QUOTATION: 'Quotation',
 };
 
 export const CASE_TYPES: Record<string, string> = {

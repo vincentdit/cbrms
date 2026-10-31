@@ -81,8 +81,9 @@ public class AdminController {
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("pendingApprovals", count("""
                 SELECT count(*) FROM approval a
-                 WHERE a.decision IS NULL AND a.subject_type IN ('BILL','CANCELLATION','EXPIRY_CHANGE','REFUND')
+                 WHERE a.decision IS NULL AND a.subject_type IN ('BILL','CANCELLATION','EXPIRY_CHANGE','REFUND','QUOTATION')
                    AND (a.subject_type <> 'BILL' OR EXISTS (SELECT 1 FROM bill b WHERE b.id = a.subject_id AND b.preparation_state = 'AwaitingApproval'))
+                   AND (a.subject_type <> 'QUOTATION' OR EXISTS (SELECT 1 FROM quotation q WHERE q.id = a.subject_id AND q.status = 'Requested'))
                 """));
         out.put("reconciliationToReview", count("SELECT count(*) FROM reconciliation_batch WHERE status = 'MATCHED'"));
         out.put("refundsToExecute", count("SELECT count(*) FROM refund_case WHERE status IN ('Approved','ExecutionFailed')"));
@@ -288,7 +289,20 @@ public class AdminController {
                  WHERE a.decision IS NULL
                    AND a.subject_type IN ('BILL','CANCELLATION','EXPIRY_CHANGE','REFUND')
                    AND (a.subject_type <> 'BILL' OR b.preparation_state = 'AwaitingApproval')
-                 ORDER BY a.created_at
+                UNION ALL
+                SELECT 'QUOTATION', q.id, NULL, s.code, q.quote_reference, p.display_name, q.total, q.currency, q.description,
+                       'Quotation for ' || v.name || ' in ' ||
+                         (SELECT count(*) FROM quotation_milestone m WHERE m.quotation_id = q.id)::text || ' milestone(s), valid until ' ||
+                         to_char(q.valid_until, 'DD Mon YYYY'),
+                       u.display_name, a.created_at
+                  FROM approval a
+                  JOIN quotation q ON q.id = a.subject_id
+                  JOIN app_user u ON u.id = a.maker_id
+                  JOIN source_system s ON s.id = q.source_system_id
+                  JOIN service v ON v.id = q.service_id
+                  JOIN payer p ON p.id = q.payer_id
+                 WHERE a.decision IS NULL AND a.subject_type = 'QUOTATION' AND q.status = 'Requested'
+                 ORDER BY 12
                 """)
             .query((rs, n) -> new ApprovalRow(rs.getString(1), rs.getString(2), rs.getString(3), rs.getString(4), rs.getString(5),
                     rs.getString(6), rs.getBigDecimal(7).toPlainString(), rs.getString(8), rs.getString(9), rs.getString(10),

@@ -36,7 +36,9 @@ public class BillService {
 
     public record CreateOutcome(UUID billId, boolean created) {}
 
-    private record PricedLine(PricedTariff tariff, BigDecimal quantity, BigDecimal lineTotal) {}
+    /** unitPrice and description come from the tariff, or from the quotation milestone for QUOTED services. */
+    private record PricedLine(PricedTariff tariff, BigDecimal quantity, BigDecimal unitPrice, BigDecimal lineTotal, String description,
+                              UUID milestoneId) {}
 
     private final JdbcClient jdbc;
     private final TariffRepository tariffs;
@@ -45,9 +47,14 @@ public class BillService {
     private final OutboxService outbox;
     private final AuditService audit;
     private final CbrmsProperties props;
+    private final PayerRepository payers;
+    private final QuotationService quotations;
 
     public BillService(JdbcClient jdbc, TariffRepository tariffs, BillQueries bills, IdempotencyRepository idempotency,
-                       OutboxService outbox, AuditService audit, CbrmsProperties props) {
+                       OutboxService outbox, AuditService audit, CbrmsProperties props, PayerRepository payers,
+                       QuotationService quotations) {
+        this.payers = payers;
+        this.quotations = quotations;
         this.jdbc = jdbc;
         this.tariffs = tariffs;
         this.bills = bills;
@@ -91,15 +98,29 @@ public class BillService {
         LocalDate today = LocalDate.now(BUSINESS_ZONE);
         List<PricedLine> priced = new ArrayList<>();
         List<ApiException.FieldProblem> problems = new ArrayList<>();
+        java.util.Set<UUID> milestonesTaken = QuotationService.newTakenSet();
         for (int i = 0; i < req.lines().size(); i++) {
             CreateBillRequest.Line line = req.lines().get(i);
-            PricedTariff t = tariffs.resolve(actor.sourceSystemId(), line.serviceCode(), line.tariffVersion(), today, "lines[" + i + "]");
+            String field = "lines[" + i + "]";
+            PricedTariff t = tariffs.resolve(actor.sourceSystemId(), line.serviceCode(), line.tariffVersion(), today, field);
+            if (t.quoted()) {
+                // Price from the approved quotation milestone (locked, so it cannot be billed twice)
+                QuotationService.PricedMilestone m = quotations.priceMilestone(actor, req.payer().reference(), line, t, field, milestonesTaken);
+                priced.add(new PricedLine(t, BigDecimal.ONE, m.amount(), m.amount(), m.description(), m.milestoneId()));
+                continue;
+            }
+            if (line.quotationReference() != null || line.milestone() != null) {
+                problems.add(new ApiException.FieldProblem(field + ".quotationReference",
+                        t.serviceCode() + " is priced from the catalogue; remove quotationReference and milestone"));
+                continue;
+            }
             if (!BillCalculator.quantityScaleAllowed(line.quantity(), t.quantityScale())) {
                 problems.add(new ApiException.FieldProblem("lines[" + i + "].quantity",
                         "at most " + t.quantityScale() + " decimal places for " + t.serviceCode()));
                 continue;
             }
-            priced.add(new PricedLine(t, line.quantity(), BillCalculator.lineTotal(line.quantity(), t.unitPrice(), t.roundingRule())));
+            priced.add(new PricedLine(t, line.quantity(), t.unitPrice(),
+                    BillCalculator.lineTotal(line.quantity(), t.unitPrice(), t.roundingRule()), t.serviceName(), null));
         }
         if (!problems.isEmpty()) {
             throw ApiException.validation("Validation failed", problems);
@@ -120,7 +141,7 @@ public class BillService {
         OffsetDateTime validUntil = dueDate.atTime(LocalTime.of(23, 59, 59)).atZone(BUSINESS_ZONE).toOffsetDateTime();
 
         // 4. Payer and contacts (restricted personal data, PDPA 2022)
-        UUID payerId = upsertPayer(actor.sourceSystemId(), req.payer(), req.language() == null ? "sw" : req.language());
+        UUID payerId = payers.upsert(actor.sourceSystemId(), req.payer(), req.language() == null ? "sw" : req.language());
 
         // 5. Insert the bill. ON CONFLICT covers a concurrent request for the same liability.
         Optional<UUID> inserted = jdbc.sql("""
@@ -160,8 +181,8 @@ public class BillService {
             PricedLine p = priced.get(i);
             jdbc.sql("""
                     INSERT INTO bill_line (bill_id, line_no, service_id, tariff_version_id, revenue_mapping_id, gfs_code,
-                                           description, quantity, unit_price, line_total)
-                    VALUES (:bill, :no, :service, :tariff, :mapping, :gfs, :description, :quantity, :unitPrice, :lineTotal)
+                                           description, quantity, unit_price, line_total, quotation_milestone_id)
+                    VALUES (:bill, :no, :service, :tariff, :mapping, :gfs, :description, :quantity, :unitPrice, :lineTotal, :milestone)
                     """)
                 .param("bill", billId)
                 .param("no", i + 1)
@@ -169,10 +190,11 @@ public class BillService {
                 .param("tariff", p.tariff().tariffVersionId())
                 .param("mapping", p.tariff().revenueMappingId())
                 .param("gfs", p.tariff().gfsCode())
-                .param("description", p.tariff().serviceName())
+                .param("description", p.description())
                 .param("quantity", p.quantity())
-                .param("unitPrice", p.tariff().unitPrice())
+                .param("unitPrice", p.unitPrice())
                 .param("lineTotal", p.lineTotal())
+                .param("milestone", p.milestoneId())
                 .update();
         }
 
@@ -233,36 +255,6 @@ public class BillService {
         }
     }
 
-    private UUID upsertPayer(UUID sourceSystemId, CreateBillRequest.Payer payer, String language) {
-        UUID payerId = jdbc.sql("""
-                INSERT INTO payer (source_system_id, payer_reference, display_name, language)
-                VALUES (:src, :ref, :name, :language)
-                ON CONFLICT (source_system_id, payer_reference)
-                  DO UPDATE SET display_name = EXCLUDED.display_name, language = EXCLUDED.language
-                RETURNING id
-                """)
-            .param("language", language)
-            .param("src", sourceSystemId)
-            .param("ref", payer.reference())
-            .param("name", payer.name())
-            .query(UUID.class)
-            .single();
-        addContact(payerId, "PHONE", payer.phone());
-        addContact(payerId, "EMAIL", payer.email());
-        return payerId;
-    }
-
-    private void addContact(UUID payerId, String channel, String value) {
-        if (value == null || value.isBlank()) {
-            return;
-        }
-        jdbc.sql("INSERT INTO payer_contact (payer_id, channel, value) VALUES (:payer, :channel, :value) ON CONFLICT DO NOTHING")
-            .param("payer", payerId)
-            .param("channel", channel)
-            .param("value", value.trim())
-            .update();
-    }
-
     /** Stable request fingerprint for idempotency; quantities are normalised so 1 and 1.0 match. */
     static String canonical(CreateBillRequest r) {
         Map<String, Object> m = new LinkedHashMap<>();
@@ -274,8 +266,16 @@ public class BillService {
         m.put("replacesBillId", r.replacesBillId() == null ? null : r.replacesBillId().toString());
         m.put("language", r.language());
         m.put("lines", r.lines().stream()
-                .map(l -> List.of(nz(l.serviceCode()), l.tariffVersion() == null ? "" : l.tariffVersion().toString(),
-                        l.quantity() == null ? "" : l.quantity().stripTrailingZeros().toPlainString()))
+                .map(l -> {
+                    List<String> parts = new ArrayList<>(List.of(nz(l.serviceCode()), l.tariffVersion() == null ? "" : l.tariffVersion().toString(),
+                            l.quantity() == null ? "" : l.quantity().stripTrailingZeros().toPlainString()));
+                    // added only when used, so fingerprints of existing catalogue requests are unchanged
+                    if (l.quotationReference() != null || l.milestone() != null) {
+                        parts.add(nz(l.quotationReference()));
+                        parts.add(l.milestone() == null ? "" : l.milestone().toString());
+                    }
+                    return parts;
+                })
                 .toList());
         return Json.write(m);
     }

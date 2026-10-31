@@ -8,6 +8,7 @@ const NOUN: Record<ApprovalKind, string> = {
   CANCELLATION: 'cancellation',
   EXPIRY_CHANGE: 'new deadline',
   REFUND: 'refund',
+  QUOTATION: 'quotation',
 };
 
 /** Approve or reject any maker-checker item. The server refuses the maker's own request; the form says why. */

@@ -16,6 +16,7 @@ import {
   NoticeRow,
   Page,
   PlatformRow,
+  Quotation,
   PublicBill,
   ReconciliationItem,
   ReconciliationRun,
@@ -79,6 +80,14 @@ export class ApiService {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
+  quotations(status = ''): Observable<Quotation[]> {
+    return this.http.get<Quotation[]>('/internal/v1/admin/quotations', { params: status ? { status } : {} });
+  }
+
+  quotation(id: string): Observable<Quotation> {
+    return this.http.get<Quotation>(`/internal/v1/quotations/${id}`);
+  }
+
   platforms(): Observable<PlatformRow[]> {
     return this.http.get<PlatformRow[]>('/internal/v1/admin/platforms');
   }
@@ -107,6 +116,8 @@ export class ApiService {
         return this.http.post(`/internal/v1/bills/${subjectId}/approval`, body);
       case 'REFUND':
         return this.http.post(`/internal/v1/refunds/${subjectId}/decision`, body);
+      case 'QUOTATION':
+        return this.http.post(`/internal/v1/quotations/${subjectId}/decision`, body);
       default:
         return this.http.post(`/internal/v1/change-requests/${subjectId}/decision`, body);
     }

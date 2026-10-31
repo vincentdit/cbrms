@@ -13,7 +13,7 @@ import { DecisionComponent } from './decision.component';
     <header class="page-head">
       <h1>Approvals</h1>
       <p class="lede">
-        Everything that needs a second officer: new bills, cancellations, new deadlines and refunds. Oldest first. You cannot
+        Everything that needs a second officer: new bills, consultancy quotations, cancellations, new deadlines and refunds. Oldest first. You cannot
         decide on a request you made yourself.
       </p>
     </header>
@@ -46,7 +46,11 @@ import { DecisionComponent } from './decision.component';
             <li>
               <div class="approval-facts">
                 <span class="kind-tag" [attr.data-kind]="a.kind">{{ kindLabel(a.kind) }}</span>
-                <a [routerLink]="['/bills', a.billId]" class="row-link">{{ a.payerName }}</a>
+                @if (a.billId) {
+                  <a [routerLink]="['/bills', a.billId]" class="row-link">{{ a.payerName }}</a>
+                } @else {
+                  <a [routerLink]="['/quotations', a.subjectId]" class="row-link">{{ a.payerName }}</a>
+                }
                 <span class="approval-amount">{{ a.total | money: a.currency }}</span>
                 <span class="sub">
                   {{ a.description }}. {{ a.sourceSystem.toUpperCase() }} {{ a.sourceReference }}, requested by {{ a.maker }} on
@@ -79,7 +83,7 @@ export class ApprovalsPage {
   protected readonly kinds = computed(() => {
     const list = this.rows() ?? [];
     const all = [{ kind: 'ALL' as const, label: 'All', count: list.length }];
-    const by = (['BILL', 'CANCELLATION', 'EXPIRY_CHANGE', 'REFUND'] as ApprovalKind[])
+    const by = (['BILL', 'QUOTATION', 'CANCELLATION', 'EXPIRY_CHANGE', 'REFUND'] as ApprovalKind[])
       .map((kind) => ({ kind, label: APPROVAL_KINDS[kind], count: list.filter((r) => r.kind === kind).length }))
       .filter((k) => k.count > 0);
     return [...all, ...by];

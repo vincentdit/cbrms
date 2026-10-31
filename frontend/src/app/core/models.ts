@@ -125,14 +125,15 @@ export interface Activity {
   credit: string;
 }
 
-export type ApprovalKind = 'BILL' | 'CANCELLATION' | 'EXPIRY_CHANGE' | 'REFUND';
+export type ApprovalKind = 'BILL' | 'CANCELLATION' | 'EXPIRY_CHANGE' | 'REFUND' | 'QUOTATION';
 
 export interface ApprovalRow {
   /** What is being approved. subjectId is the bill, change request or refund ID the decision applies to. */
   kind: ApprovalKind;
   subjectId: string;
   detail: string | null;
-  billId: string;
+  /** Null for a quotation, which has no bill yet. */
+  billId: string | null;
   sourceSystem: string;
   sourceReference: string;
   payerName: string;
@@ -315,4 +316,33 @@ export interface OutstandingReport {
   rows: AgedRow[];
   totals: AgedRow;
   bills: OutstandingBill[];
+}
+
+export interface QuotationMilestone {
+  milestone: number;
+  description: string;
+  amount: string;
+  /** The active bill for this milestone, if it has been billed. */
+  billId: string | null;
+  billState: 'Billed' | 'PartiallyPaid' | 'Paid' | null;
+}
+
+export interface Quotation {
+  quotationId: string;
+  sourceSystem: string;
+  quoteReference: string;
+  serviceCode: string;
+  serviceName: string;
+  payerReference: string;
+  payerName: string;
+  description: string;
+  total: string;
+  currency: string;
+  validUntil: string;
+  status: 'Requested' | 'Approved' | 'Rejected' | 'Withdrawn';
+  requestedBy: string;
+  createdAt: string;
+  decidedAt: string | null;
+  billed: string;
+  milestones: QuotationMilestone[];
 }

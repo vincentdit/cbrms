@@ -83,7 +83,7 @@ public class SecurityConfig {
                     a.requestMatchers("/sim/**").permitAll();
                 }
                 a.requestMatchers("/internal/v1/bills/*/approval", "/internal/v1/change-requests/*/decision",
-                        "/internal/v1/refunds/*/decision").hasRole("BILL_APPROVER");
+                        "/internal/v1/refunds/*/decision", "/internal/v1/quotations/*/decision").hasRole("BILL_APPROVER");
                 a.requestMatchers("/internal/v1/events", "/internal/v1/events/**").hasRole("PLATFORM");
                 a.requestMatchers("/internal/v1/admin/**").hasAnyRole("BILLING_OFFICER", "BILL_APPROVER", "FINANCE_VIEWER");
                 a.requestMatchers("/internal/**").hasAnyRole(PLATFORM_OR_FINANCE);

@@ -18,7 +18,7 @@ public class TariffRepository {
 
     private record Row(UUID serviceId, String code, String name, int scale, boolean requiresApproval, String serviceStatus,
                        UUID tariffId, java.math.BigDecimal unitPrice, String mode, String rounding, int maxValidity,
-                       String tariffStatus, boolean inEffect, UUID mappingId, String gfsCode, boolean permitted) {}
+                       String tariffStatus, boolean inEffect, UUID mappingId, String gfsCode, boolean permitted, boolean quoted) {}
 
     /**
      * Resolves the price CBRMS will charge. The client never supplies a price or total (FR03, FR01, RU03).
@@ -31,7 +31,8 @@ public class TariffRepository {
                        (t.effective_period @> CAST(:onDate AS date)),
                        m.id, m.gfs_code,
                        EXISTS (SELECT 1 FROM source_system_service p
-                                WHERE p.source_system_id = :sourceSystemId AND p.service_id = s.id)
+                                WHERE p.source_system_id = :sourceSystemId AND p.service_id = s.id),
+                       s.pricing_basis = 'QUOTED'
                   FROM service s
                   JOIN tariff_version t ON t.service_id = s.id AND t.version_no = :version AND t.currency = 'TZS'
                   LEFT JOIN revenue_mapping m ON m.service_id = s.id AND m.status = 'ACTIVE'
@@ -44,7 +45,7 @@ public class TariffRepository {
             .param("code", serviceCode)
             .query((rs, n) -> new Row(rs.getObject(1, UUID.class), rs.getString(2), rs.getString(3), rs.getInt(4), rs.getBoolean(5),
                     rs.getString(6), rs.getObject(7, UUID.class), rs.getBigDecimal(8), rs.getString(9), rs.getString(10), rs.getInt(11),
-                    rs.getString(12), rs.getBoolean(13), rs.getObject(14, UUID.class), rs.getString(15), rs.getBoolean(16)))
+                    rs.getString(12), rs.getBoolean(13), rs.getObject(14, UUID.class), rs.getString(15), rs.getBoolean(16), rs.getBoolean(17)))
             .optional()
             .orElseThrow(() -> ApiException.validation(field + ".serviceCode", "Unknown service or tariff version"));
 
@@ -59,6 +60,6 @@ public class TariffRepository {
             throw new ApiException(422, "CBR-TAR-002", "No active revenue mapping for " + serviceCode);
         }
         return new PricedTariff(r.serviceId(), r.code(), r.name(), r.scale(), r.requiresApproval(), r.tariffId(), r.unitPrice(),
-                PaymentMode.valueOf(r.mode()), RoundingRule.valueOf(r.rounding()), r.maxValidity(), r.mappingId(), r.gfsCode());
+                PaymentMode.valueOf(r.mode()), RoundingRule.valueOf(r.rounding()), r.maxValidity(), r.mappingId(), r.gfsCode(), r.quoted());
     }
 }

@@ -48,7 +48,29 @@ This gets a token as CIAP and requests a bill for two advisory days:
 $tok = (Invoke-RestMethod -Method Post -Uri "http://localhost:8190/realms/tirdo/protocol/openid-connect/token" -ContentType "application/x-www-form-urlencoded" -Body @{ grant_type = "client_credentials"; client_id = "ciap"; client_secret = "ciap-sso-dev-secret" }).access_token; $body = @{ sourceReference = "CIAP-2026-0001"; payer = @{ reference = "CUST-901"; name = "Tanga Cement PLC"; phone = "255700000001" }; currency = "TZS"; description = "Industrial advisory, 2 days"; language = "en"; lines = @(@{ serviceCode = "CIAP-ADV-001"; tariffVersion = 1; quantity = 2 }) } | ConvertTo-Json -Depth 5; Invoke-RestMethod -Method Post -Uri "http://localhost:8085/internal/v1/bills" -Headers @{ Authorization = "Bearer $tok"; "Idempotency-Key" = [guid]::NewGuid().ToString() } -ContentType "application/json" -Body $body | Format-List sourceSystem, sourceReference, total, preparationState
 ```
 
-After you change `sso/tirdo-realm.json`, recreate Keycloak so it imports the realm again. Local Keycloak keeps no data between containers:
+### Quoted consultancy (CIAP)
+
+Consultancy prices are agreed per engagement, so CIAP bills `CIAP-CONS-003` from a quotation rather than the catalogue:
+
+1. CIAP submits the quotation with its payment milestones.
+2. A bill approver approves it under **Approvals** (or **Quotations**) in the console.
+3. CIAP bills one milestone at a time by number. CBRMS takes the amount from the quotation, and each milestone can be billed only once.
+
+This submits a two-milestone quotation as CIAP:
+
+```powershell
+$tok = (Invoke-RestMethod -Method Post -Uri "http://localhost:8190/realms/tirdo/protocol/openid-connect/token" -ContentType "application/x-www-form-urlencoded" -Body @{ grant_type = "client_credentials"; client_id = "ciap"; client_secret = "ciap-sso-dev-secret" }).access_token; $q = "CIAP-Q-" + (Get-Random); $body = @{ quoteReference = $q; payer = @{ reference = "CUST-901"; name = "Tanga Cement PLC"; phone = "255700000001" }; serviceCode = "CIAP-CONS-003"; description = "Energy audit of the kiln line"; validUntil = (Get-Date).AddMonths(6).ToString("yyyy-MM-dd"); language = "en"; milestones = @(@{ description = "Inception report"; amount = 4000000 }, @{ description = "Final report"; amount = 6000000 }) } | ConvertTo-Json -Depth 5; Invoke-RestMethod -Method Post -Uri "http://localhost:8085/internal/v1/quotations" -Headers @{ Authorization = "Bearer $tok" } -ContentType "application/json" -Body $body | Format-List quoteReference, total, status; "Quote reference: $q"
+```
+
+Approve it in the console as `finance.approver`. Then, in the same PowerShell window, bill milestone 1:
+
+```powershell
+$body = @{ sourceReference = "$q-M1"; payer = @{ reference = "CUST-901"; name = "Tanga Cement PLC"; phone = "255700000001" }; currency = "TZS"; description = "Energy audit: inception report"; language = "en"; lines = @(@{ serviceCode = "CIAP-CONS-003"; tariffVersion = 1; quantity = 1; quotationReference = $q; milestone = 1 }) } | ConvertTo-Json -Depth 5; Invoke-RestMethod -Method Post -Uri "http://localhost:8085/internal/v1/bills" -Headers @{ Authorization = "Bearer $tok"; "Idempotency-Key" = [guid]::NewGuid().ToString() } -ContentType "application/json" -Body $body | Format-List sourceReference, total, preparationState
+```
+
+The bill total is TZS 4,000,000.00, taken from the quotation. Sending the same milestone again is refused with 409.
+
+, recreate Keycloak so it imports the realm again. Local Keycloak keeps no data between containers:
 
 ```powershell
 cd C:\dev\cbrms; docker compose -f docker-compose.yml -f docker-compose.sso.yml up -d --force-recreate keycloak

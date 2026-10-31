@@ -85,7 +85,7 @@ class PlatformIsolationIntegrationTest {
         List<String> codes = list.stream().map(AdminController.PlatformRow::code).toList();
         assertTrue(codes.containsAll(List.of("lims", "ciap", "teltp", "isicms")));
         AdminController.PlatformRow ciap = list.stream().filter(p -> p.code().equals("ciap")).findFirst().orElseThrow();
-        assertEquals(List.of("CIAP-ADV-001", "CIAP-REV-002"), ciap.services());
+        assertTrue(ciap.services().containsAll(List.of("CIAP-ADV-001", "CIAP-REV-002", "CIAP-CONS-003")));
         assertFalse(ciap.services().contains("LIMS-CHEM-001"));
     }
 

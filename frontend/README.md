@@ -5,7 +5,8 @@ Angular 22 console for TIRDO Finance staff:
 - **Bills:** search and filter every bill, including by platform (LIMS, CIAP, TeLTP, ISICMS).
 - **Bill detail:** control number, progress, charges, payments, history sent to the platform and exceptions.
 - **Bill detail** also has officer actions: cancel the bill, give a new deadline and refund client credit. It also shows change requests, credit and messages to the client.
-- **Approvals:** one queue for new bills, cancellations, new deadlines and refunds, filterable by kind.
+- **Approvals:** one queue for new bills, quotations, cancellations, new deadlines and refunds, filterable by kind.
+- **Quotations:** consultancy quotations with their milestones and which have been billed; approve or reject from the quotation.
 - **Exceptions:** cases CBRMS could not settle on its own.
 - **Reconciliation:** daily runs, line-by-line results, run now, and sign-off.
 - **Refunds:** approved refunds to pay out; record the bank reference or a failure.

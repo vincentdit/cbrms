@@ -13,6 +13,8 @@ export const routes: Routes = [
       { path: 'bills', loadComponent: () => import('./pages/bills.page').then((m) => m.BillsPage), title: 'Bills | CBRMS' },
       { path: 'bills/:id', loadComponent: () => import('./pages/bill-detail.page').then((m) => m.BillDetailPage), title: 'Bill | CBRMS' },
       { path: 'approvals', loadComponent: () => import('./pages/approvals.page').then((m) => m.ApprovalsPage), title: 'Approvals | CBRMS' },
+      { path: 'quotations', loadComponent: () => import('./pages/quotations.page').then((m) => m.QuotationsPage), title: 'Quotations | CBRMS' },
+      { path: 'quotations/:id', loadComponent: () => import('./pages/quotation-detail.page').then((m) => m.QuotationDetailPage), title: 'Quotation | CBRMS' },
       { path: 'reconciliation', loadComponent: () => import('./pages/reconciliation.page').then((m) => m.ReconciliationPage), title: 'Reconciliation | CBRMS' },
       { path: 'refunds', loadComponent: () => import('./pages/refunds.page').then((m) => m.RefundsPage), title: 'Refunds | CBRMS' },
       { path: 'reports', loadComponent: () => import('./pages/reports.page').then((m) => m.ReportsPage), title: 'Reports | CBRMS' },
