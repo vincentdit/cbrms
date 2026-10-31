@@ -34,6 +34,9 @@ Built from the CBRMS planning package v2.1: Blueprint (02), SRS (04), Architectu
 | JWT audience check: only tokens issued for CBRMS are accepted | NFR security | `spring.security.oauth2.resourceserver.jwt.audiences` |
 | Several platforms (LIMS, CIAP, TeLTP, ISICMS). Each bills only its mapped services and cannot see or change another platform's bills | FR26 | `source_system_service`, `BillController`, `BillChangeService` |
 | Platform list and per-platform bill filter for Finance | FR35 | `GET /internal/v1/admin/platforms`, `?source=` on `/admin/bills` |
+| Collections report by platform, service or GFS code for a date range: received = applied + credit + suspense. Multi-line bills are shared across lines in proportion to line totals, to the cent | BR reporting | `reports/ReportService`, `GET /internal/v1/admin/reports/collections[.csv]` |
+| Outstanding balances aged by days past due (not yet due, 1–30, 31–60, 61–90, over 90), with every bill in the CSV | BR reporting | `GET /internal/v1/admin/reports/outstanding[.csv]` |
+| CSV export: UTF-8 with BOM for Excel, formula-injection safe, each export audited | FR28 | `reports/ReportsController` |
 
 ## Next increments (not yet built)
 
@@ -180,7 +183,7 @@ src/main/java/tz/go/tirdo/cbrms/
   events/       outbox, signed dispatcher, recovery feed
   catalogue/    tariff resolution
   cases/ audit/ identity/ config/ common/
-  reconciliation/ refunds/ notifications/ lookup/ admin/
+  reconciliation/ refunds/ notifications/ lookup/ reports/ admin/
 src/main/resources/db/migration   V1–V7 (PostgreSQL 18; uuidv7() shim for 13–17)
 src/main/resources/db/seed        development seed (local and test profiles only)
 ```

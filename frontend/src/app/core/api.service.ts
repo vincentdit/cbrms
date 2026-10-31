@@ -1,6 +1,6 @@
 import { HttpClient, HttpErrorResponse, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { Observable } from 'rxjs';
+import { Observable, firstValueFrom } from 'rxjs';
 import {
   Activity,
   ApiError,
@@ -9,6 +9,9 @@ import {
   Bill,
   BillRow,
   CaseRow,
+  CollectionsReport,
+  GroupBy,
+  OutstandingReport,
   ChangeView,
   NoticeRow,
   Page,
@@ -49,6 +52,31 @@ export class ApiService {
       }
     }
     return this.http.get<Page<BillRow>>('/internal/v1/admin/bills', { params });
+  }
+
+  collectionsReport(from: string, to: string, groupBy: GroupBy): Observable<CollectionsReport> {
+    return this.http.get<CollectionsReport>('/internal/v1/admin/reports/collections', { params: { from, to, groupBy } });
+  }
+
+  outstandingReport(): Observable<OutstandingReport> {
+    return this.http.get<OutstandingReport>('/internal/v1/admin/reports/outstanding');
+  }
+
+  /**
+   * Downloads a CSV through HttpClient (so the sign-in header is sent) and saves it with the server's file name.
+   */
+  async download(path: string, params: Record<string, string> = {}): Promise<void> {
+    const response = await firstValueFrom(this.http.get(path, { params, observe: 'response', responseType: 'blob' }));
+    const disposition = response.headers.get('Content-Disposition') ?? '';
+    const name = /filename="([^"]+)"/.exec(disposition)?.[1] ?? 'cbrms-report.csv';
+    const url = URL.createObjectURL(response.body as Blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
   platforms(): Observable<PlatformRow[]> {

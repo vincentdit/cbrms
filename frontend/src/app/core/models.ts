@@ -260,3 +260,59 @@ export interface PlatformRow {
   bills: number;
   services: string[];
 }
+
+export type GroupBy = 'platform' | 'service' | 'gfs';
+
+export interface CollectionRow {
+  key: string;
+  name: string;
+  payments: number;
+  amount: string;
+}
+
+export interface CollectionsReport {
+  from: string;
+  to: string;
+  groupBy: GroupBy;
+  rows: CollectionRow[];
+  applied: string;
+  credit: string;
+  suspense: string;
+  received: string;
+  payments: number;
+  /** True when payments on multi-line bills were shared across lines (service and GFS views). */
+  apportioned: boolean;
+}
+
+export interface AgedRow {
+  platform: string;
+  platformName: string;
+  bills: number;
+  notYetDue: string;
+  days1to30: string;
+  days31to60: string;
+  days61to90: string;
+  over90: string;
+  total: string;
+}
+
+export interface OutstandingBill {
+  billId: string;
+  platform: string;
+  sourceReference: string;
+  payerName: string;
+  controlNumber: string | null;
+  dueDate: string;
+  total: string;
+  paid: string;
+  balance: string;
+  daysOverdue: number;
+  bucket: string;
+}
+
+export interface OutstandingReport {
+  asOf: string;
+  rows: AgedRow[];
+  totals: AgedRow;
+  bills: OutstandingBill[];
+}

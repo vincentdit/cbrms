@@ -9,6 +9,7 @@ Angular 22 console for TIRDO Finance staff:
 - **Exceptions:** cases CBRMS could not settle on its own.
 - **Reconciliation:** daily runs, line-by-line results, run now, and sign-off.
 - **Refunds:** approved refunds to pay out; record the bank reference or a failure.
+- **Reports:** collections for a date range by platform, service or GFS code, and outstanding balances by age. Both download as CSV.
 - **Client messages:** SMS and email sent to clients, with recipients masked.
 - **Check a bill** (`/check`, public, no sign-in): control number plus SMS one-time code.
 - **GePG simulator:** local and test environments only. It can also add lines to the GePG reconciliation file.

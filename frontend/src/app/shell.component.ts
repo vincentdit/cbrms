@@ -24,6 +24,7 @@ import { SettingsService } from './core/settings.service';
           <a routerLink="/cases" routerLinkActive="active">Exceptions</a>
           <a routerLink="/reconciliation" routerLinkActive="active">Reconciliation</a>
           <a routerLink="/refunds" routerLinkActive="active">Refunds</a>
+          <a routerLink="/reports" routerLinkActive="active">Reports</a>
           <a routerLink="/notices" routerLinkActive="active">Client messages</a>
           @if (settings.settings().simulator) {
             <a routerLink="/simulator" routerLinkActive="active" class="nav-test">GePG simulator</a>

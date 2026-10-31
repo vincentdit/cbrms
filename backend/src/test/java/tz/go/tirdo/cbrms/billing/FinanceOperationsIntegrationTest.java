@@ -177,7 +177,10 @@ class FinanceOperationsIntegrationTest {
         assertEquals(400, assertThrows(ApiException.class, () -> lookup.verify(new PublicLookupController.VerifyRequest(cn, code), http)).status(),
                 "a code works once");
 
-        notifier.runOnce();
+        // Schedulers are off in tests, so notices from earlier runs may be queued ahead of ours; send until the queue is empty.
+        for (int round = 0; round < 1_000 && notifier.runOnce() > 0; round++) {
+            // keep sending
+        }
         assertEquals(0L, jdbc.sql("SELECT count(*) FROM client_notification WHERE bill_id = :id AND status = 'PENDING'")
                 .param("id", id).query(Long.class).single().longValue());
     }
