@@ -34,6 +34,10 @@
       {
         "name": "AUDITOR",
         "description": "Internal Audit: reads every Finance view and the audit trail; changes nothing"
+      },
+      {
+        "name": "ADMINISTRATOR",
+        "description": "Manages the system: sees every console view; does not prepare or approve bills, payments or refunds"
       }
     ]
   },
@@ -255,6 +259,25 @@
       "realmRoles": [
         "default-roles-tirdo",
         "AUDITOR"
+      ]
+    },
+    {
+      "username": "admin",
+      "firstName": "System",
+      "lastName": "Administrator",
+      "email": "admin@example.invalid",
+      "emailVerified": true,
+      "enabled": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "admin-dev",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "default-roles-tirdo",
+        "ADMINISTRATOR"
       ]
     },
     {

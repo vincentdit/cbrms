@@ -36,7 +36,7 @@ import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 @Configuration
 public class SecurityConfig {
 
-    static final String[] PLATFORM_OR_FINANCE = {"PLATFORM", "BILLING_OFFICER", "BILL_APPROVER", "FINANCE_VIEWER", "AUDITOR"};
+    static final String[] PLATFORM_OR_FINANCE = {"PLATFORM", "BILLING_OFFICER", "BILL_APPROVER", "FINANCE_VIEWER", "AUDITOR", "ADMINISTRATOR"};
     /** Roles that may change anything. FINANCE_VIEWER and AUDITOR only read. */
     static final String[] ACTORS = {"PLATFORM", "BILLING_OFFICER", "BILL_APPROVER"};
 
@@ -64,6 +64,7 @@ public class SecurityConfig {
                 User.withUsername("finance.maker").password("{noop}maker-dev").roles("BILLING_OFFICER").build(),
                 User.withUsername("finance.approver").password("{noop}approver-dev").roles("BILL_APPROVER").build(),
                 User.withUsername("internal.auditor").password("{noop}auditor-dev").roles("AUDITOR").build(),
+                User.withUsername("admin").password("{noop}admin-dev").roles("ADMINISTRATOR").build(),
                 // Prometheus scrapes /actuator/prometheus as this user in basic mode
                 User.withUsername("monitoring").password("{noop}monitoring-dev").roles("TECHNICAL_OPERATOR").build());
     }
@@ -94,7 +95,7 @@ public class SecurityConfig {
                 a.requestMatchers("/internal/v1/events", "/internal/v1/events/**").hasRole("PLATFORM");
                 // FINANCE_VIEWER is read-only: every Finance action is a POST under /admin
                 a.requestMatchers(HttpMethod.POST, "/internal/v1/admin/**").hasAnyRole("BILLING_OFFICER", "BILL_APPROVER");
-                a.requestMatchers("/internal/v1/admin/**").hasAnyRole("BILLING_OFFICER", "BILL_APPROVER", "FINANCE_VIEWER", "AUDITOR");
+                a.requestMatchers("/internal/v1/admin/**").hasAnyRole("BILLING_OFFICER", "BILL_APPROVER", "FINANCE_VIEWER", "AUDITOR", "ADMINISTRATOR");
                 // Read-only roles cannot change anything elsewhere either (for example request a cancellation)
                 a.requestMatchers(HttpMethod.POST, "/internal/**").hasAnyRole(ACTORS);
                 a.requestMatchers("/internal/**").hasAnyRole(PLATFORM_OR_FINANCE);

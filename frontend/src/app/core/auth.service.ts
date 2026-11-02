@@ -26,11 +26,12 @@ export class AuthService {
   readonly canApprove = computed(() => this.has('BILL_APPROVER'));
   readonly isOfficer = computed(() => this.has('BILLING_OFFICER'));
   readonly isFinance = computed(() =>
-    (this.me()?.roles ?? []).some((r) => ['BILLING_OFFICER', 'BILL_APPROVER', 'FINANCE_VIEWER', 'AUDITOR'].includes(r)),
+    (this.me()?.roles ?? []).some((r) => ['BILLING_OFFICER', 'BILL_APPROVER', 'FINANCE_VIEWER', 'AUDITOR', 'ADMINISTRATOR'].includes(r)),
   );
-  /** Finance viewers and auditors can open every Finance page but change nothing. */
+  /** Finance viewers, auditors and the system administrator can open every Finance page but change nothing. */
   readonly readOnly = computed(() => this.isFinance() && !this.has('BILLING_OFFICER') && !this.has('BILL_APPROVER'));
   readonly isAuditor = computed(() => this.has('AUDITOR'));
+  readonly isAdministrator = computed(() => this.has('ADMINISTRATOR'));
 
   /** Runs once at start-up, after settings load. In SSO mode it completes a sign-in redirect if there is one. */
   async init(): Promise<void> {

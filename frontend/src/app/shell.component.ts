@@ -76,7 +76,11 @@ import { SettingsService } from './core/settings.service';
       <main id="main" tabindex="-1">
         @if (auth.readOnly()) {
           <p class="notice read-only-banner">
-            {{ auth.isAuditor() ? 'Auditor access' : 'Read-only access' }}: you can see everything here, but you cannot approve, request or change anything.
+            @if (auth.isAdministrator()) {
+              System administrator: you can see the whole system. Bills, approvals and payments stay with Finance.
+            } @else {
+              {{ auth.isAuditor() ? 'Auditor access' : 'Read-only access' }}: you can see everything here, but you cannot approve, request or change anything.
+            }
           </p>
         }
         @if (auth.me() && !auth.isFinance()) {
