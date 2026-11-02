@@ -4,11 +4,12 @@ import { ApiService, Decision, describeError } from '../core/api.service';
 import { AuthService } from '../core/auth.service';
 import { ApprovalKind, ApprovalRow } from '../core/models';
 import { APPROVAL_KINDS, EatPipe, MoneyPipe } from '../shared/format';
+import { PlatformComponent } from '../shared/platform.component';
 import { DecisionComponent } from './decision.component';
 
 @Component({
   selector: 'app-approvals',
-  imports: [RouterLink, MoneyPipe, EatPipe, DecisionComponent],
+  imports: [RouterLink, MoneyPipe, EatPipe, DecisionComponent, PlatformComponent],
   template: `
     <header class="page-head">
       <h1>Approvals</h1>
@@ -59,7 +60,7 @@ import { DecisionComponent } from './decision.component';
                   <span class="approval-amount">{{ a.total | money: a.currency }}@if (a.kind === 'CATALOGUE') { <span class="sub">new price per unit</span>}</span>
                 }
                 <span class="sub">
-                  {{ a.description }}. {{ a.sourceSystem.toUpperCase() }} {{ a.sourceReference }}, requested by {{ a.maker }} on
+                  {{ a.description }}. <app-platform [code]="a.sourceSystem" /> {{ a.sourceReference }}, requested by {{ a.maker }} on
                   {{ a.requestedAt | eat }}
                 </span>
                 @if (a.detail) {

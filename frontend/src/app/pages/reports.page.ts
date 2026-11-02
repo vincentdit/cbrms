@@ -4,6 +4,7 @@ import { Router, RouterLink } from '@angular/router';
 import { ApiService, describeError } from '../core/api.service';
 import { CollectionsReport, GroupBy, OutstandingReport } from '../core/models';
 import { ControlNumberPipe, EatPipe, MoneyPipe } from '../shared/format';
+import { PlatformComponent } from '../shared/platform.component';
 
 const TODAY = new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Dar_es_Salaam' }).format(new Date());
 const MONTH_START = TODAY.slice(0, 8) + '01';
@@ -12,11 +13,11 @@ const GROUP_LABEL: Record<GroupBy, string> = { platform: 'Platform', service: 'S
 
 @Component({
   selector: 'app-reports',
-  imports: [FormsModule, RouterLink, MoneyPipe, EatPipe, ControlNumberPipe],
+  imports: [FormsModule, RouterLink, MoneyPipe, EatPipe, ControlNumberPipe, PlatformComponent],
   template: `
     <header class="page-head">
       <h1>Reports</h1>
-      <p class="lede">Money received through GePG, and what clients still owe. Every figure is calculated by CBRMS from its payment records.</p>
+      <p class="lede">Verified collections and what clients still owe, by platform. Applied to bills is revenue. Credit and suspense are not.</p>
     </header>
 
     <div class="chips" role="tablist" aria-label="Report">
@@ -98,7 +99,11 @@ const GROUP_LABEL: Record<GroupBy, string> = { platform: 'Platform', service: 'S
                   @for (r of c.rows; track r.key) {
                     <tr>
                       <td>
-                        <strong class="cn">{{ c.groupBy === 'platform' ? r.key.toUpperCase() : r.key }}</strong>
+                        @if (c.groupBy === 'platform') {
+                          <app-platform [code]="r.key" />
+                        } @else {
+                          <strong class="cn">{{ r.key }}</strong>
+                        }
                         <span class="sub">{{ r.name }}</span>
                       </td>
                       <td class="num">{{ r.payments }}</td>
@@ -157,7 +162,7 @@ const GROUP_LABEL: Record<GroupBy, string> = { platform: 'Platform', service: 'S
                 <tbody>
                   @for (r of o.rows; track r.platform) {
                     <tr>
-                      <th scope="row"><a routerLink="/bills" [queryParams]="{ source: r.platform, registration: 'Accepted', collection: 'Unpaid,PartiallyPaid' }">{{ r.platform.toUpperCase() }}</a></th>
+                      <th scope="row"><a routerLink="/bills" [queryParams]="{ source: r.platform, registration: 'Accepted', collection: 'Unpaid,PartiallyPaid' }"><app-platform [code]="r.platform" /><span class="sub">{{ r.platformName }}</span></a></th>
                       <td class="num">{{ r.bills }}</td>
                       <td class="num" [class.muted]="isZero(r.notYetDue)">{{ r.notYetDue | money }}</td>
                       <td class="num" [class.muted]="isZero(r.days1to30)">{{ r.days1to30 | money }}</td>
@@ -204,7 +209,7 @@ const GROUP_LABEL: Record<GroupBy, string> = { platform: 'Platform', service: 'S
                     <tr>
                       <td>
                         <a [routerLink]="['/bills', b.billId]" class="row-link">{{ b.payerName }}</a>
-                        <span class="sub">{{ b.platform.toUpperCase() }} {{ b.sourceReference }}</span>
+                        <span class="sub"><app-platform [code]="b.platform" /> {{ b.sourceReference }}</span>
                       </td>
                       <td class="cn">{{ b.controlNumber | controlNumber }}</td>
                       <td class="nowrap">{{ b.dueDate | eat: false }}</td>

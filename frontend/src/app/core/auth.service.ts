@@ -114,6 +114,13 @@ export class AuthService {
     }
   }
 
+  /** SSO only: the TIRDO account page, where the password is changed. */
+  async manageAccount(): Promise<void> {
+    if (this.keycloak?.authenticated) {
+      await this.keycloak.accountManagement();
+    }
+  }
+
   /** Signs out of the console; in SSO mode also ends the Keycloak session. */
   logout(): void {
     this.me.set(null);

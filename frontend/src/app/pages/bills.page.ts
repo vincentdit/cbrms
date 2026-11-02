@@ -4,15 +4,16 @@ import { Router, RouterLink } from '@angular/router';
 import { ApiService, describeError } from '../core/api.service';
 import { BillRow, Page, PlatformRow } from '../core/models';
 import { ControlNumberPipe, EatPipe, MoneyPipe, STATES } from '../shared/format';
+import { PlatformComponent } from '../shared/platform.component';
 import { StateComponent } from '../shared/state.component';
 
 @Component({
   selector: 'app-bills',
-  imports: [FormsModule, RouterLink, MoneyPipe, ControlNumberPipe, EatPipe, StateComponent],
+  imports: [FormsModule, RouterLink, MoneyPipe, ControlNumberPipe, EatPipe, StateComponent, PlatformComponent],
   template: `
     <header class="page-head">
       <h1>Bills</h1>
-      <p class="lede">Every bill issued through CBRMS. Search by client, source reference or control number.</p>
+      <p class="lede">Every GePG bill in TIRDO CBRMS, with the platform that requested it. Amount, paid and balance are the values CBRMS recorded.</p>
     </header>
 
     <form class="filters" (ngSubmit)="apply()" role="search">
@@ -79,7 +80,7 @@ import { StateComponent } from '../shared/state.component';
                 <tr>
                   <td>
                     <a [routerLink]="['/bills', b.billId]" class="row-link">{{ b.payerName }}</a>
-                    <span class="sub">{{ b.sourceSystem.toUpperCase() }} {{ b.sourceReference }}</span>
+                    <span class="sub"><app-platform [code]="b.sourceSystem" /> {{ b.sourceReference }}</span>
                   </td>
                   <td class="cn">{{ b.controlNumber | controlNumber }}</td>
                   <td class="num">{{ b.total | money: b.currency }}</td>

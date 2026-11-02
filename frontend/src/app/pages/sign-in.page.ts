@@ -10,10 +10,16 @@ import { SettingsService } from '../core/settings.service';
   imports: [FormsModule, RouterLink],
   template: `
     <div class="signin">
+      <div class="signin-layout">
+      <section class="signin-brand">
+        <img src="tirdo-logo.jpg" alt="" width="56" height="70" />
+        <p class="signin-kicker">Tanzania Industrial Research and Development Organization</p>
+        <p class="brand-title">TIRDO Central Billing and Revenue Management System</p>
+        <p class="lede">One record of GePG bills and verified payments for every TIRDO platform. A payment is stored once.</p>
+      </section>
       <section class="signin-panel" aria-labelledby="signin-title">
-        <img src="tirdo-logo.jpg" alt="TIRDO" width="56" height="70" />
-        <h1 id="signin-title">Billing and revenue console</h1>
-        <p class="lede">Tanzania Industrial Research and Development Organization</p>
+        <h1 id="signin-title">Sign in</h1>
+        <p class="lede">Finance console for TIRDO CBRMS</p>
         @if (auth.sso()) {
           <p>Use your TIRDO staff account. You may be asked for a second factor.</p>
           @if (error()) {
@@ -44,6 +50,7 @@ import { SettingsService } from '../core/settings.service';
         }
         <p class="hint"><a routerLink="/check">Client? Check a bill with its control number</a></p>
       </section>
+      </div>
     </div>
   `,
 })

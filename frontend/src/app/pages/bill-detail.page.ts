@@ -6,13 +6,14 @@ import { ApiService, describeError } from '../core/api.service';
 import { AuthService } from '../core/auth.service';
 import { Activity, Bill, NoticeRow } from '../core/models';
 import { CASE_TYPES, ControlNumberPipe, EatPipe, EVENT_TYPES, MoneyPipe, NOTICE_TEMPLATES, stateInfo } from '../shared/format';
+import { PlatformComponent } from '../shared/platform.component';
 import { StateComponent } from '../shared/state.component';
 import { BillActionsComponent } from './bill-actions.component';
 import { DecisionComponent } from './decision.component';
 
 @Component({
   selector: 'app-bill-detail',
-  imports: [FormsModule, RouterLink, MoneyPipe, ControlNumberPipe, EatPipe, StateComponent, DecisionComponent, BillActionsComponent],
+  imports: [FormsModule, RouterLink, MoneyPipe, ControlNumberPipe, EatPipe, StateComponent, DecisionComponent, BillActionsComponent, PlatformComponent],
   template: `
     <p class="back"><a routerLink="/bills">Back to bills</a></p>
 
@@ -27,7 +28,7 @@ import { DecisionComponent } from './decision.component';
       <header class="bill-head">
         <div>
           <h1>{{ b.description }}</h1>
-          <p class="lede">{{ b.sourceSystem.toUpperCase() }} request {{ b.sourceReference }}@if (b.liabilityVersion > 1) {, version {{ b.liabilityVersion }}}</p>
+          <p class="lede"><app-platform [code]="b.sourceSystem" /> request {{ b.sourceReference }}@if (b.liabilityVersion > 1) {, version {{ b.liabilityVersion }}}</p>
         </div>
         <div class="slip" [class.slip-pending]="!b.controlNumber">
           <span class="slip-label">Control number</span>
@@ -137,7 +138,8 @@ import { DecisionComponent } from './decision.component';
 
       @if (activity(); as a) {
         <section class="block" aria-labelledby="pay-title">
-          <h2 id="pay-title">Payments</h2>
+          <h2 id="pay-title">Verified payments</h2>
+          <p class="lede money-note">These are payments CBRMS has already verified and stored. A repeated GePG notice does not create another row. Money held as credit is not revenue.</p>
           @if (a.payments.length === 0) {
             <p class="empty">No payment received yet.</p>
           } @else {

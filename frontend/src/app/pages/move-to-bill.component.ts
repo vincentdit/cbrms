@@ -3,11 +3,12 @@ import { FormsModule } from '@angular/forms';
 import { ApiService, describeError } from '../core/api.service';
 import { BillRow, UnallocatedPayment } from '../core/models';
 import { ControlNumberPipe, MoneyPipe } from '../shared/format';
+import { PlatformComponent } from '../shared/platform.component';
 
 /** Finds the right bill for unallocated money and requests the move. A second officer approves it. */
 @Component({
   selector: 'app-move-to-bill',
-  imports: [FormsModule, MoneyPipe, ControlNumberPipe],
+  imports: [FormsModule, MoneyPipe, ControlNumberPipe, PlatformComponent],
   template: `
     <form class="action-form" (ngSubmit)="find()">
       <p>
@@ -28,7 +29,7 @@ import { ControlNumberPipe, MoneyPipe } from '../shared/format';
             @for (b of list; track b.billId) {
               <label>
                 <input type="radio" name="bill" [value]="b.billId" [(ngModel)]="billId" />
-                <span><strong>{{ b.payerName }}</strong> · {{ b.sourceSystem.toUpperCase() }} {{ b.sourceReference }} ·
+                <span><strong>{{ b.payerName }}</strong> · <app-platform [code]="b.sourceSystem" /> {{ b.sourceReference }} ·
                   {{ b.controlNumber | controlNumber }} · {{ b.total | money: b.currency }} (balance {{ b.balance | money: b.currency }})</span>
               </label>
             }
