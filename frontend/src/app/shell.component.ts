@@ -34,7 +34,7 @@ import { SettingsService } from './core/settings.service';
           <a routerLink="/notices" routerLinkActive="active">Client messages</a>
           <a routerLink="/audit" routerLinkActive="active">Audit trail</a>
           <a routerLink="/operations" routerLinkActive="active">Operations</a>
-          @if (settings.settings().simulator) {
+          @if (settings.settings().simulator && !auth.readOnly()) {
             <p class="nav-label">Test</p>
             <a routerLink="/simulator" routerLinkActive="active" class="nav-test">GePG simulator</a>
           }
