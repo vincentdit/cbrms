@@ -8,3 +8,5 @@
 Dockerfile text eol=lf
 *.jpg binary
 *.png binary
+ops/postgres/cbrms-* text eol=lf
+ops/postgres/*.conf text eol=lf

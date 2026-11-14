@@ -1,0 +1,98 @@
+#!/usr/bin/env bash
+# CBRMS timed restore drill (NFR05, AT11). Run as the postgres OS user on a host that can read the pgBackRest repository.
+# It never touches the live database files:
+#   1. writes a marker into the live database and waits until the WAL holding it is archived;
+#   2. restores the latest backup plus all archived WAL into a scratch directory (archiving switched off there);
+#   3. starts the copy on a private port and checks: the marker survived (RPO), payments, inbox, outbox and audit
+#      records are all there, and no financial invariant is broken;
+#   4. records the measured restore time (RTO) and the result in the live database (ops_heartbeat: restore.drill).
+set -uo pipefail
+
+STANZA="${CBRMS_STANZA:-cbrms}"
+DB="${CBRMS_DB:-cbrms}"
+DB_USER="${CBRMS_DB_USER:-cbrms}"
+LIVE_HOST="${PGHOST:-/var/run/postgresql}"
+LIVE_PORT="${PGPORT:-5432}"
+DRILL_DIR="${CBRMS_DRILL_DIR:-/tmp/cbrms-restore-drill}"
+DRILL_PORT="${CBRMS_DRILL_PORT:-5499}"
+RTO_LIMIT_S="${CBRMS_RTO_LIMIT_S:-7200}"         # NFR05: 2 hours
+ARCHIVE_WAIT_S="${CBRMS_ARCHIVE_WAIT_S:-150}"     # archive_timeout is 60 s, so the marker's WAL is archived within ~1 minute
+PG_BIN="${PG_BIN:-$(dirname "$(command -v pg_ctl || echo /usr/lib/postgresql/${PG_MAJOR:-18}/bin/pg_ctl)")}"
+
+live()  { psql -X -A -t -q -v ON_ERROR_STOP=1 -h "$LIVE_HOST" -p "$LIVE_PORT" -U "$DB_USER" -d "$DB" "$@"; }
+drill() { psql -X -A -t -q -v ON_ERROR_STOP=1 -h "$DRILL_DIR/socket" -p "$DRILL_PORT" -U "$DB_USER" -d "$DB" "$@"; }
+fail()  { echo "DRILL FAILED: $1" >&2; record false "$1"; cleanup; exit 1; }
+record() { echo "INSERT INTO ops_heartbeat (name, ok, detail) VALUES ('restore.drill', :'ok', :'detail');" \
+             | live -v ok="$1" -v detail="$2" || echo "WARNING: could not record the result in ops_heartbeat" >&2; }
+cleanup() {
+  "$PG_BIN/pg_ctl" -D "$DRILL_DIR/data" -m immediate stop >/dev/null 2>&1 || true
+  rm -rf "$DRILL_DIR"
+}
+
+echo "== CBRMS restore drill (stanza $STANZA)"
+marker="drill-$(date -u +%Y%m%dT%H%M%SZ)-$$"
+
+# 1. Marker and baseline from the live database
+marked_at=$(live -c "INSERT INTO ops_heartbeat (name, ok, detail) VALUES ('drill.marker', true, '$marker') RETURNING occurred_at") \
+  || { echo "Cannot write to the live database" >&2; exit 1; }
+baseline=$(live -c "SELECT (SELECT count(*) FROM payment) || ' ' || (SELECT count(*) FROM integration_inbox) || ' ' ||
+                           (SELECT count(*) FROM outbox_event) || ' ' || (SELECT count(*) FROM audit_event)")
+read -r base_pay base_inbox base_outbox base_audit <<<"$baseline"
+echo "   marker $marker written at $marked_at; live has $base_pay payment(s), $base_inbox inbox, $base_outbox outbox, $base_audit audit rows"
+
+echo "   waiting for the marker's WAL to be archived (up to ${ARCHIVE_WAIT_S}s)"
+waited=0
+until [ "$(live -c "SELECT coalesce(last_archived_time > '$marked_at'::timestamptz, false) FROM pg_stat_archiver")" = "t" ]; do
+  sleep 5; waited=$((waited + 5))
+  [ "$waited" -ge "$ARCHIVE_WAIT_S" ] && fail "the marker's WAL was not archived within ${ARCHIVE_WAIT_S}s (check archive_command and RB-05)"
+done
+echo "   archived after ${waited}s"
+
+# 2. Restore into a scratch directory: never the live data directory
+cleanup
+mkdir -p "$DRILL_DIR/data" "$DRILL_DIR/socket" && chmod 700 "$DRILL_DIR/data"
+t0=$(date +%s)
+pgbackrest --stanza="$STANZA" --pg1-path="$DRILL_DIR/data" --archive-mode=off --type=default restore \
+  > "$DRILL_DIR/restore.log" 2>&1 || { cat "$DRILL_DIR/restore.log" >&2; fail "pgbackrest restore failed"; }
+
+# 3. Start the copy privately and let it replay to the end of the archive. Its own minimal config: no network
+#    (Unix socket in the drill directory only), so trusting local connections is safe and works on every install.
+[ -f "$DRILL_DIR/data/postgresql.conf" ] || : > "$DRILL_DIR/data/postgresql.conf"
+printf 'local all all trust\n' > "$DRILL_DIR/data/pg_hba.conf"
+"$PG_BIN/pg_ctl" -D "$DRILL_DIR/data" -l "$DRILL_DIR/postgres.log" -w -t 3600 \
+  -o "-p $DRILL_PORT -k $DRILL_DIR/socket -c listen_addresses='' -c archive_mode=off -c hba_file=$DRILL_DIR/data/pg_hba.conf" start >/dev/null \
+  || { tail -n 30 "$DRILL_DIR/postgres.log" >&2; fail "the restored database did not start"; }
+for _ in $(seq 1 720); do
+  [ "$(drill -c 'SELECT pg_is_in_recovery()' 2>/dev/null)" = "f" ] && break
+  sleep 5
+done
+[ "$(drill -c 'SELECT pg_is_in_recovery()')" = "f" ] || fail "recovery did not finish within an hour"
+rto=$(( $(date +%s) - t0 ))
+
+# 4. Checks
+found=$(drill -c "SELECT count(*) FROM ops_heartbeat WHERE name = 'drill.marker' AND detail = '$marker'")
+restored=$(drill -c "SELECT (SELECT count(*) FROM payment) || ' ' || (SELECT count(*) FROM integration_inbox) || ' ' ||
+                            (SELECT count(*) FROM outbox_event) || ' ' || (SELECT count(*) FROM audit_event)")
+read -r r_pay r_inbox r_outbox r_audit <<<"$restored"
+violations=$(drill -c "SELECT count(*) FROM v_invariant_violations")
+newest=$(drill -c "SELECT coalesce(max(occurred_at)::text, '-') FROM ops_heartbeat")
+
+problems=()
+[ "$found" = "1" ] || problems+=("marker missing: data written $waited s before the restore point was lost (RPO breached)")
+[ "$r_pay" -ge "$base_pay" ] || problems+=("payments: $r_pay restored, $base_pay in live before the drill")
+[ "$r_inbox" -ge "$base_inbox" ] || problems+=("inbox: $r_inbox restored, $base_inbox expected")
+[ "$r_outbox" -ge "$base_outbox" ] || problems+=("outbox: $r_outbox restored, $base_outbox expected")
+[ "$violations" = "0" ] || problems+=("$violations invariant violation(s) in the restored copy")
+[ "$rto" -le "$RTO_LIMIT_S" ] || problems+=("restore took ${rto}s, over the ${RTO_LIMIT_S}s RTO")
+
+summary="rto=${rto}s payments=$r_pay inbox=$r_inbox outbox=$r_outbox audit=$r_audit marker=$([ "$found" = "1" ] && echo found || echo MISSING) violations=$violations newest=$newest"
+cleanup
+if [ ${#problems[@]} -eq 0 ]; then
+  record true "$summary"
+  echo "== DRILL PASSED: $summary"
+else
+  detail="$summary; ${problems[*]}"
+  record false "$detail"
+  echo "== DRILL FAILED: $detail" >&2
+  exit 1
+fi

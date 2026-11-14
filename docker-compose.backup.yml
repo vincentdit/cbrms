@@ -1,0 +1,31 @@
+# Backup overlay (NFR05): PostgreSQL with continuous WAL archiving to pgBackRest, archive forced every 60 seconds
+# (RPO 1 minute for payments), and CBRMS alerting when backups or archiving fall behind.
+#   docker compose -f docker-compose.yml -f docker-compose.backup.yml up -d --build
+#   docker exec -u postgres cbrms-postgres cbrms-backup init        (once)
+#   docker exec -u postgres cbrms-postgres cbrms-backup full
+#   docker exec -u postgres cbrms-postgres cbrms-restore-drill
+# Combine with docker-compose.sso.yml and docker-compose.ops.yml as needed.
+services:
+  postgres:
+    build: ./ops/postgres
+    image: tirdo/cbrms-postgres:local
+    command:
+      - postgres
+      - -c
+      - wal_level=replica
+      - -c
+      - archive_mode=on
+      - -c
+      - archive_command=pgbackrest --stanza=cbrms archive-push %p
+      - -c
+      - archive_timeout=60
+    volumes:
+      - cbrms-pgbackrest:/var/lib/pgbackrest
+
+  cbrms:
+    environment:
+      CBRMS_BACKUP_EXPECTED: "true"
+      CBRMS_ARCHIVE_EXPECTED: "true"
+
+volumes:
+  cbrms-pgbackrest:

@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+# CBRMS backups with pgBackRest (NFR05). Run as the postgres OS user, on the database host:
+#   cbrms-backup init     create the pgBackRest stanza and check WAL archiving (once, after enabling archiving)
+#   cbrms-backup full     full backup              cbrms-backup diff     differential backup (changes since the last full)
+#   cbrms-backup info     list backups and the WAL archive range
+# Every backup run is recorded in ops_heartbeat (backup.full / backup.diff, ok true or false), which drives the
+# BackupMissing alert and the console's Operations page.
+set -uo pipefail
+
+STANZA="${CBRMS_STANZA:-cbrms}"
+DB="${CBRMS_DB:-cbrms}"
+DB_USER="${CBRMS_DB_USER:-cbrms}"
+export PGHOST="${PGHOST:-/var/run/postgresql}" PGPORT="${PGPORT:-5432}"
+
+heartbeat() {   # name ok detail
+  # SQL on stdin, so psql substitutes the quoted variables safely
+  echo "INSERT INTO ops_heartbeat (name, ok, detail) VALUES (:'name', :'ok', :'detail');" \
+    | psql -X -q -v ON_ERROR_STOP=1 -U "$DB_USER" -d "$DB" -v name="$1" -v ok="$2" -v detail="$3" \
+    || echo "WARNING: could not record the $1 heartbeat in ops_heartbeat" >&2
+}
+
+case "${1:-}" in
+  init)
+    pgbackrest --stanza="$STANZA" stanza-create && pgbackrest --stanza="$STANZA" check
+    ;;
+  full|diff)
+    started=$(date +%s)
+    if output=$(pgbackrest --stanza="$STANZA" --type="$1" backup 2>&1); then
+      label=$(pgbackrest --stanza="$STANZA" --output=json info | sed -n 's/.*"label":"\([^"]*\)".*/\1/p' | tail -n 1)
+      detail="label=${label:-?} seconds=$(( $(date +%s) - started ))"
+      heartbeat "backup.$1" true "$detail"
+      echo "Backup $1 complete: $detail"
+    else
+      echo "$output" >&2
+      heartbeat "backup.$1" false "$(echo "$output" | tail -n 3 | tr '\n' ' ' | cut -c1-400)"
+      echo "Backup $1 FAILED (recorded in ops_heartbeat)" >&2
+      exit 1
+    fi
+    ;;
+  info)
+    pgbackrest --stanza="$STANZA" info
+    ;;
+  *)
+    echo "usage: cbrms-backup init|full|diff|info" >&2
+    exit 2
+    ;;
+esac
