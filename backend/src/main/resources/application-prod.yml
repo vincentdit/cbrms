@@ -9,6 +9,8 @@ spring:
     clean-disabled: true
 
 cbrms:
+  security:
+    staff-acr: ${CBRMS_STAFF_ACR:mfa}   # Finance, approvers and auditors must sign in with an authenticator app
   ops:
     backup-expected: true
     archive-expected: true

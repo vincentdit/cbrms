@@ -54,9 +54,12 @@ public class PublicLookupController {
     private final String pepper;
     private final SecureRandom random = new SecureRandom();
     private final Map<String, Deque<Long>> recent = new ConcurrentHashMap<>();
+    private final ClientAddress clientAddress;
 
     public PublicLookupController(JdbcClient jdbc, NotificationService notices, AuditService audit,
-                                  @Value("${cbrms.lookup.pepper:local-development-pepper}") String pepper) {
+                                  @Value("${cbrms.lookup.pepper:local-development-pepper}") String pepper,
+                                  @Value("${cbrms.lookup.trusted-proxies:}") String trustedProxies) {
+        this.clientAddress = new ClientAddress(trustedProxies);
         this.jdbc = jdbc;
         this.notices = notices;
         this.audit = audit;
@@ -146,9 +149,17 @@ public class PublicLookupController {
     }
 
     private void limit(HttpServletRequest request) {
-        String forwarded = request.getHeader("X-Real-IP");
-        String ip = forwarded != null && !forwarded.isBlank() ? forwarded : request.getRemoteAddr();
+        String ip = clientAddress.of(request.getRemoteAddr(), request.getHeader("X-Real-IP"));
         long now = System.currentTimeMillis();
+        if (recent.size() > 10_000) {
+            // forget addresses with nothing in the window, so the table cannot grow without bound
+            recent.entrySet().removeIf(e -> {
+                synchronized (e.getValue()) {
+                    Long last = e.getValue().peekLast();
+                    return last == null || now - last > 600_000;
+                }
+            });
+        }
         Deque<Long> times = recent.computeIfAbsent(ip, k -> new ArrayDeque<>());
         synchronized (times) {
             while (!times.isEmpty() && now - times.peekFirst() > 600_000) {

@@ -4,6 +4,10 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
@@ -29,6 +33,9 @@ import org.springframework.security.web.authentication.HttpStatusEntryPoint;
  *   <li><b>jwt</b> (production): Keycloak-issued tokens. Staff use single sign-on with MFA; platforms use client credentials.
  *       Tokens must carry the CBRMS audience (spring.security.oauth2.resourceserver.jwt.audiences), so a token issued
  *       for another TIRDO application in the same realm is refused.</li>
+ *   <li>cbrms.security.staff-acr (jwt mode): when set (production: "mfa"), staff roles in a token count only if its
+ *       "acr" claim is one of the listed levels, so a staff token from a password-only sign-in can read and change
+ *       nothing. Platform and technical-operator (service account) roles are not affected.</li>
  *   <li><b>basic</b> (local and test only): fixed development users. Refuses to start unless the GePG simulator is on,
  *       so it cannot be enabled by mistake against real GePG.</li>
  * </ul>
@@ -39,6 +46,10 @@ public class SecurityConfig {
     static final String[] PLATFORM_OR_FINANCE = {"PLATFORM", "BILLING_OFFICER", "BILL_APPROVER", "FINANCE_VIEWER", "AUDITOR"};
     /** Roles that may change anything. FINANCE_VIEWER and AUDITOR only read. */
     static final String[] ACTORS = {"PLATFORM", "BILLING_OFFICER", "BILL_APPROVER"};
+    /** People, as opposed to systems: these roles need the stronger sign-in when staff-acr is set. */
+    static final Set<String> STAFF_ROLES = Set.of("BILLING_OFFICER", "BILL_APPROVER", "FINANCE_VIEWER", "AUDITOR");
+
+    private static final Logger log = LoggerFactory.getLogger(SecurityConfig.class);
 
     @Bean
     @ConditionalOnProperty(name = "cbrms.security.mode", havingValue = "basic")
@@ -70,9 +81,13 @@ public class SecurityConfig {
 
     @Bean
     @ConditionalOnProperty(name = "cbrms.security.mode", havingValue = "jwt", matchIfMissing = true)
-    SecurityFilterChain jwtChain(HttpSecurity http, @Value("${cbrms.gepg.mode}") String gepgMode) throws Exception {
+    SecurityFilterChain jwtChain(HttpSecurity http, @Value("${cbrms.gepg.mode}") String gepgMode,
+                                 @Value("${cbrms.security.staff-acr:}") String staffAcr) throws Exception {
         rules(http, "simulator".equals(gepgMode));
-        http.oauth2ResourceServer(o -> o.jwt(j -> j.jwtAuthenticationConverter(keycloakConverter())));
+        Set<String> levels = parseLevels(staffAcr);
+        log.info(levels.isEmpty() ? "Staff sign-in level not enforced (cbrms.security.staff-acr is empty)"
+                : "Staff roles require sign-in level (acr) in " + levels);
+        http.oauth2ResourceServer(o -> o.jwt(j -> j.jwtAuthenticationConverter(keycloakConverter(levels))));
         return http.build();
     }
 
@@ -103,17 +118,38 @@ public class SecurityConfig {
             });
     }
 
-    /** Maps Keycloak realm roles (realm_access.roles) to ROLE_* authorities; principal is preferred_username. */
-    static JwtAuthenticationConverter keycloakConverter() {
+    static Set<String> parseLevels(String csv) {
+        if (csv == null || csv.isBlank()) {
+            return Set.of();
+        }
+        return java.util.Arrays.stream(csv.split(",")).map(String::trim).filter(v -> !v.isEmpty())
+                .collect(Collectors.toUnmodifiableSet());
+    }
+
+    /**
+     * Maps Keycloak realm roles (realm_access.roles) to ROLE_* authorities; principal is preferred_username.
+     * With staffAcr non-empty, staff roles are dropped from tokens whose "acr" is not one of those levels.
+     */
+    static JwtAuthenticationConverter keycloakConverter(Set<String> staffAcr) {
         Converter<Jwt, Collection<GrantedAuthority>> roles = jwt -> {
             Map<String, Object> realm = jwt.getClaimAsMap("realm_access");
             Object list = realm == null ? null : realm.get("roles");
             if (!(list instanceof Collection<?> names)) {
                 return List.of();
             }
-            return names.stream()
-                    .map(n -> (GrantedAuthority) new SimpleGrantedAuthority("ROLE_" + String.valueOf(n).toUpperCase(Locale.ROOT)))
-                    .toList();
+            String acr = jwt.getClaimAsString("acr");   // may be absent; Set.of(..).contains(null) would throw
+            boolean strongSignIn = staffAcr.isEmpty() || (acr != null && staffAcr.contains(acr));
+            List<GrantedAuthority> granted = new java.util.ArrayList<>();
+            for (Object n : names) {
+                String role = String.valueOf(n).toUpperCase(Locale.ROOT);
+                if (!strongSignIn && STAFF_ROLES.contains(role)) {
+                    log.warn("Staff role {} ignored for {}: sign-in level (acr) {} is not one of {}",
+                            role, jwt.getClaimAsString("preferred_username"), acr, staffAcr);
+                    continue;
+                }
+                granted.add(new SimpleGrantedAuthority("ROLE_" + role));
+            }
+            return granted;
         };
         JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
         converter.setJwtGrantedAuthoritiesConverter(roles);

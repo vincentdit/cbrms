@@ -44,11 +44,36 @@ Every step that moves money goes through the console, under maker-checker. Nobod
 4. Public holidays count as business days to CBRMS. Sign off a holiday with a note.
 
 ## RB-05 Backup and archive
-**Alerts:** `BackupMissing` (no successful backup in 24 hours), `WalArchiveBehind` (over 5 minutes) and `WalArchiveFailing`. **Owner:** ICTT infrastructure.
+**Alerts:** `BackupMissing` (no successful backup in 24 hours, or the last backup failed), `WalArchiveBehind` (over 5 minutes) and `WalArchiveFailing`. **Owner:** ICTT infrastructure.
 
-1. Check the backup job and repository space. The job records each run in `ops_heartbeat`, as `backup.full` or `backup.diff`, with `ok` true or false.
-2. For archive failures, read the PostgreSQL log and `SELECT * FROM pg_stat_archiver;`.
-3. Every acknowledged GePG payment must survive a restore (RPO 1 minute). If archiving was down, record the exposure window, then reconcile that window against GePG once it recovers.
+1. See what the repository holds: `docker exec -u postgres cbrms-postgres cbrms-backup info`.
+2. Read the last backup result, newest first: `SELECT name, ok, detail, occurred_at FROM ops_heartbeat WHERE name LIKE 'backup.%' ORDER BY occurred_at DESC LIMIT 5;`
+3. Run a backup by hand: `docker exec -u postgres cbrms-postgres cbrms-backup diff` (or `full`). It records its own heartbeat.
+4. For archive failures, read the PostgreSQL log (`docker logs cbrms-postgres`) and `SELECT * FROM pg_stat_archiver;`. Then check the archive end to end with `docker exec -u postgres cbrms-postgres pgbackrest --stanza=cbrms check`.
+5. Every acknowledged GePG payment must survive a restore (RPO 1 minute). If archiving was down, record the exposure window, then reconcile that window against GePG once it recovers.
+
+### Restore drill (AT11)
+Run the drill before go-live and then at least once a year (document 08). Monthly is recommended while the system is new.
+
+`docker exec -u postgres cbrms-postgres cbrms-restore-drill`
+
+The drill:
+1. writes a marker into the live database and waits until its WAL is archived;
+2. restores the latest backup plus every archived WAL file into a scratch directory, with archiving off;
+3. starts the copy on a private socket, then checks that the marker, payments, inbox and outbox records came back and that no invariant is broken;
+4. records the measured restore time against the 2-hour RTO, as `restore.drill` in `ops_heartbeat`.
+
+It never touches the live data files. A failed drill exits with an error and records why.
+
+### Real recovery
+To recover from losing the primary database:
+1. Stop CBRMS: `docker stop cbrms-app`.
+2. Restore with `pgbackrest --stanza=cbrms --delta restore` into the data directory of a stopped PostgreSQL.
+3. Start PostgreSQL and let it replay WAL. Check `v_invariant_violations`.
+4. Reconcile recovered payments against GePG before automated service release resumes (document 06).
+5. Start CBRMS again.
+
+Record the timeline as an incident.
 
 ## RB-06 Certificates (SOP-14)
 **Alerts:** `CertificateExpiresIn60Days`, `CertificateExpiresIn30Days` (warnings) and `CertificateExpiresIn7Days` (critical). **Owner:** ICTT integration custodian.
@@ -61,3 +86,24 @@ Every step that moves money goes through the console, under maker-checker. Nobod
 
 1. Under **Client messages**, find the failed messages and the provider's error.
 2. Notices never affect financial records. Tell clients by phone if a control number or receipt didn't reach them.
+
+## RB-08 Staff sign-in and MFA
+**Trigger:** a staff member lost their phone, changed phones or is locked out. **Owner:** ICTT (Keycloak administrator).
+
+- Finance officers, approvers, auditors and Finance viewers must sign in with password plus an authenticator app (Microsoft Authenticator, Google Authenticator, FreeOTP). Keycloak asks them to set it up at their first sign-in.
+- The backend checks this too (`cbrms.security.staff-acr: mfa`): a staff token from a password-only sign-in gets no staff rights, and the backend log says `Staff role ... ignored`.
+- **Lost or replaced phone:** Keycloak admin, realm `tirdo`, **Users**, the user, **Credentials**, delete the `otp` credential. Confirm who is asking by phone or in person first. At the next sign-in they set up the new phone.
+- **Locked out:** five wrong passwords lock the account for a few minutes, growing to 15 minutes. **Users**, the user, turn off **Temporarily locked** (or wait). Repeated lockouts may be an attack: check **Events** (`LOGIN_ERROR`) for the source address.
+- **Production password policy:** Keycloak admin, **Authentication**, **Policies**, set minimum length to 12. The development realm uses 8 only because the development passwords are short.
+- Sign-ins, failures and authenticator changes are kept as Keycloak events for 90 days; admin changes as admin events.
+
+## RB-09 Client secret rotation (AT17)
+**When:** at least yearly, when someone who knew a secret leaves, or at once if a secret may have leaked. **Owner:** ICTT, with the platform team.
+
+1. Agree a time with the platform team. Their calls fail from the rotation until they load the new secret.
+2. Rotate (PowerShell, from the repository folder):
+   `.\sso\Rotate-ClientSecret.ps1 -Client lims -KeycloakUrl https://<keycloak> -OutFile <secure path>`
+   Use `-WhatIf` first to check access without changing anything. Clients: `lims`, `ciap`, `teltp`, `isicms`, `monitoring`.
+3. The script proves the new secret works and the token is for `cbrms`. Hand the secret over securely, then delete the file.
+4. Check the platform's next calls succeed (console **Operations**, or the platform's own logs). For `monitoring`, reload Prometheus and check the `cbrms` target is up.
+5. Keycloak records the rotation as an admin event (who and when; the secret is not recorded).

@@ -11,5 +11,7 @@ FROM nginx:stable-alpine
 ENV CBRMS_AUTH_ORIGIN="" \
     NGINX_ENVSUBST_FILTER="^CBRMS_"
 COPY nginx.conf /etc/nginx/templates/default.conf.template
+# Becomes /etc/nginx/conf.d/security-headers.inc (not *.conf, so nginx loads it only where it is included)
+COPY security-headers.inc /etc/nginx/templates/security-headers.inc.template
 COPY --from=build /app/dist/frontend/browser /usr/share/nginx/html
 EXPOSE 80

@@ -33,6 +33,7 @@ services:
         condition: service_healthy
     environment:
       CBRMS_SECURITY_MODE: jwt
+      CBRMS_STAFF_ACR: mfa
       # Tokens must be issued by this realm (the "iss" claim browsers see) ...
       SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://localhost:${CBRMS_SSO_PORT:-8190}/realms/tirdo
       # ... and are verified with keys fetched over the internal network.

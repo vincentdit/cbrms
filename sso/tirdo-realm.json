@@ -56,7 +56,9 @@
       ],
       "attributes": {
         "pkce.code.challenge.method": "S256",
-        "post.logout.redirect.uris": "+"
+        "post.logout.redirect.uris": "+",
+        "minimum.acr.value": "mfa",
+        "default.acr.values": "mfa"
       },
       "protocolMappers": [
         {
@@ -302,5 +304,163 @@
         "TECHNICAL_OPERATOR"
       ]
     }
-  ]
+  ],
+  "attributes": {
+    "acr.loa.map": "{\"password\": \"1\", \"mfa\": \"2\"}"
+  },
+  "browserFlow": "browser-mfa",
+  "otpPolicyType": "totp",
+  "otpPolicyAlgorithm": "HmacSHA1",
+  "otpPolicyDigits": 6,
+  "otpPolicyPeriod": 30,
+  "otpSupportedApplications": [
+    "totpAppGoogleName",
+    "totpAppMicrosoftAuthenticatorName",
+    "totpAppFreeOTPName"
+  ],
+  "authenticatorConfig": [
+    {
+      "alias": "cbrms-loa-password",
+      "config": {
+        "loa-condition-level": "1",
+        "loa-max-age": "36000"
+      }
+    },
+    {
+      "alias": "cbrms-loa-mfa",
+      "config": {
+        "loa-condition-level": "2",
+        "loa-max-age": "36000"
+      }
+    }
+  ],
+  "authenticationFlows": [
+    {
+      "alias": "browser-mfa",
+      "description": "CBRMS staff sign-in: password then authenticator code (NFR06)",
+      "providerId": "basic-flow",
+      "topLevel": true,
+      "builtIn": false,
+      "authenticationExecutions": [
+        {
+          "requirement": "ALTERNATIVE",
+          "priority": 10,
+          "autheticatorFlow": false,
+          "authenticatorFlow": false,
+          "userSetupAllowed": false,
+          "authenticator": "auth-cookie"
+        },
+        {
+          "requirement": "ALTERNATIVE",
+          "priority": 20,
+          "autheticatorFlow": true,
+          "authenticatorFlow": true,
+          "userSetupAllowed": false,
+          "flowAlias": "browser-mfa forms"
+        }
+      ]
+    },
+    {
+      "alias": "browser-mfa forms",
+      "description": "Each level of authentication in turn",
+      "providerId": "basic-flow",
+      "topLevel": false,
+      "builtIn": false,
+      "authenticationExecutions": [
+        {
+          "requirement": "CONDITIONAL",
+          "priority": 10,
+          "autheticatorFlow": true,
+          "authenticatorFlow": true,
+          "userSetupAllowed": false,
+          "flowAlias": "browser-mfa level 1 password"
+        },
+        {
+          "requirement": "CONDITIONAL",
+          "priority": 20,
+          "autheticatorFlow": true,
+          "authenticatorFlow": true,
+          "userSetupAllowed": false,
+          "flowAlias": "browser-mfa level 2 code"
+        }
+      ]
+    },
+    {
+      "alias": "browser-mfa level 1 password",
+      "description": "Level 1: username and password",
+      "providerId": "basic-flow",
+      "topLevel": false,
+      "builtIn": false,
+      "authenticationExecutions": [
+        {
+          "requirement": "REQUIRED",
+          "priority": 10,
+          "autheticatorFlow": false,
+          "authenticatorFlow": false,
+          "userSetupAllowed": false,
+          "authenticator": "conditional-level-of-authentication",
+          "authenticatorConfig": "cbrms-loa-password"
+        },
+        {
+          "requirement": "REQUIRED",
+          "priority": 20,
+          "autheticatorFlow": false,
+          "authenticatorFlow": false,
+          "userSetupAllowed": false,
+          "authenticator": "auth-username-password-form"
+        }
+      ]
+    },
+    {
+      "alias": "browser-mfa level 2 code",
+      "description": "Level 2: authenticator app code (set up on first sign-in)",
+      "providerId": "basic-flow",
+      "topLevel": false,
+      "builtIn": false,
+      "authenticationExecutions": [
+        {
+          "requirement": "REQUIRED",
+          "priority": 10,
+          "autheticatorFlow": false,
+          "authenticatorFlow": false,
+          "userSetupAllowed": false,
+          "authenticator": "conditional-level-of-authentication",
+          "authenticatorConfig": "cbrms-loa-mfa"
+        },
+        {
+          "requirement": "REQUIRED",
+          "priority": 20,
+          "autheticatorFlow": false,
+          "authenticatorFlow": false,
+          "userSetupAllowed": false,
+          "authenticator": "auth-otp-form"
+        }
+      ]
+    }
+  ],
+  "permanentLockout": false,
+  "failureFactor": 5,
+  "waitIncrementSeconds": 60,
+  "maxFailureWaitSeconds": 900,
+  "maxDeltaTimeSeconds": 43200,
+  "passwordPolicy": "length(8) and notUsername and notEmail and passwordHistory(5) and maxLength(128)",
+  "eventsEnabled": true,
+  "eventsExpiration": 7776000,
+  "enabledEventTypes": [
+    "LOGIN",
+    "LOGIN_ERROR",
+    "LOGOUT",
+    "CODE_TO_TOKEN_ERROR",
+    "CLIENT_LOGIN",
+    "CLIENT_LOGIN_ERROR",
+    "UPDATE_TOTP",
+    "REMOVE_TOTP",
+    "UPDATE_CREDENTIAL",
+    "REMOVE_CREDENTIAL",
+    "UPDATE_PASSWORD",
+    "RESET_PASSWORD",
+    "USER_DISABLED_BY_TEMPORARY_LOCKOUT"
+  ],
+  "adminEventsEnabled": true,
+  "adminEventsDetailsEnabled": false
 }

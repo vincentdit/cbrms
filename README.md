@@ -11,6 +11,7 @@ TIRDO Central Billing and Revenue Management System: the shared service that iss
 | `docker-compose.sso.yml` | Overlay that adds Keycloak and switches the backend and console to single sign-on. |
 | `docker-compose.db-port.yml` | Optional overlay that publishes the database on port 55432. |
 | `docker-compose.ops.yml` | Optional monitoring overlay: Prometheus, Alertmanager and Grafana. |
+| `docker-compose.backup.yml` | Optional backup overlay: PostgreSQL with pgBackRest and WAL archiving every 60 seconds. |
 | `ops/` | Prometheus configuration and alert rules (with unit tests), Alertmanager, the Grafana dashboard and `RUNBOOKS.md`. |
 
 ## Start everything (PowerShell)
@@ -33,6 +34,8 @@ cd C:\dev\cbrms; docker compose -f docker-compose.yml -f docker-compose.sso.yml 
 - Console: http://localhost:8086, then **Sign in with TIRDO account**. The users are the same (`finance.maker` / `maker-dev`, `finance.approver` / `approver-dev`), but now Keycloak checks them.
 - Keycloak admin: http://localhost:8190, user `admin` / `admin`, realm `tirdo`. The first start takes about a minute.
 - The backend now accepts only Keycloak tokens. Basic sign-in is refused.
+- **Staff sign in with an authenticator app (MFA).** At the first sign-in Keycloak shows a QR code: scan it with Microsoft Authenticator, Google Authenticator or FreeOTP and type the 6-digit code. After that each sign-in asks for a code. The backend refuses staff rights to tokens without MFA. A lost phone is handled in RB-08 (`ops/RUNBOOKS.md`).
+- Rotate a platform's secret with `.\sso\Rotate-ClientSecret.ps1 -Client lims` (RB-09). The old secret stops working at once.
 - Each platform signs in with client credentials. CBRMS accepts only tokens issued for it (audience `cbrms`):
 
 | Platform | Client ID | Development secret | Services it may bill |
@@ -129,6 +132,34 @@ cd C:\dev\cbrms; Remove-Item Env:CBRMS_PROM_CONFIG -ErrorAction SilentlyContinue
 - Alertmanager: http://localhost:9193. Locally, alerts appear only there. For production, set up email receivers in `ops/alertmanager/alertmanager.yml`.
 
 Backup and WAL archive alerts apply only where `CBRMS_BACKUP_EXPECTED` and `CBRMS_ARCHIVE_EXPECTED` are true (the `prod` profile turns both on). Backup jobs report each run by inserting a row into `ops_heartbeat`.
+
+## Backups and the restore drill
+
+The backup overlay replaces the database image with PostgreSQL 18 plus pgBackRest, and switches on WAL archiving, forced every 60 seconds for a 1-minute RPO. Backups go to a separate Docker volume, `cbrms-pgbackrest`. Add `-f docker-compose.backup.yml` to any start command:
+
+```powershell
+cd C:\dev\cbrms; $env:CBRMS_PROM_CONFIG = "prometheus.sso.yml"; docker compose -f docker-compose.yml -f docker-compose.sso.yml -f docker-compose.ops.yml -f docker-compose.backup.yml up -d --build
+```
+
+Then, once, create the backup repository and take the first full backup:
+
+```powershell
+docker exec -u postgres cbrms-postgres cbrms-backup init; docker exec -u postgres cbrms-postgres cbrms-backup full
+```
+
+Run a restore drill (AT11). It restores into a scratch copy, proves the newest data survived and measures the restore time:
+
+```powershell
+docker exec -u postgres cbrms-postgres cbrms-restore-drill
+```
+
+Schedule backups on this PC with Windows Task Scheduler: a full backup on Sundays at 01:00 and a differential every other night at 01:30. Run this in PowerShell as Administrator:
+
+```powershell
+$full = New-ScheduledTaskAction -Execute "docker.exe" -Argument "exec -u postgres cbrms-postgres cbrms-backup full"; $diff = New-ScheduledTaskAction -Execute "docker.exe" -Argument "exec -u postgres cbrms-postgres cbrms-backup diff"; Register-ScheduledTask -TaskName "CBRMS full backup" -Action $full -Trigger (New-ScheduledTaskTrigger -Weekly -DaysOfWeek Sunday -At 1am) -Force; Register-ScheduledTask -TaskName "CBRMS differential backup" -Action $diff -Trigger (New-ScheduledTaskTrigger -Weekly -DaysOfWeek Monday,Tuesday,Wednesday,Thursday,Friday,Saturday -At 1:30am) -Force
+```
+
+Each run is recorded in `ops_heartbeat`, and the overlay turns on the backup and archive alerts. If no successful backup is recorded within 24 hours, the console's **Operations** page and Prometheus raise `BackupMissing`. On a production server, use cron or systemd timers on the database host, and follow `ops/postgres/pgbackrest.conf` for off-host, encrypted repositories. `ops/RUNBOOKS.md` (RB-05) covers failures and real recovery.
 
 ## Tests
 

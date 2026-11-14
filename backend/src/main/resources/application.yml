@@ -62,12 +62,18 @@ cbrms:
     sender: log                         # "log" records notices without sending; replace with the SMS/email gateway adapter
   lookup:
     pepper: ${CBRMS_LOOKUP_PEPPER:local-development-pepper}   # set a long random secret in production
+    # Proxies whose X-Real-IP header is believed for per-client rate limits: IPs, CIDR ranges or host names.
+    # Anyone else is limited by their own connecting address, so the header cannot be used to dodge the limit.
+    trusted-proxies: ${CBRMS_TRUSTED_PROXIES:cbrms-console}
   security:
-    mode: ${CBRMS_SECURITY_MODE:jwt}
+    mode: ${CBRMS_SECURITY_MODE:jwt}    # jwt (Keycloak) in production; local and test profiles default to basic
+    # jwt mode: staff roles count only when the token's sign-in level (acr) is one of these (comma-separated).
+    # Empty = not enforced. Production and the SSO overlay use "mfa" (Keycloak level 2: password + authenticator app).
+    staff-acr: ${CBRMS_STAFF_ACR:}
   ops:
     backup-expected: ${CBRMS_BACKUP_EXPECTED:false}     # true in production: a missing or stale backup raises an alert
     archive-expected: ${CBRMS_ARCHIVE_EXPECTED:false}   # true in production: WAL archive lag raises an alert
-    certificates: []                                    # name + path (PEM) or name + not-after (yyyy-MM-dd)    # jwt (Keycloak) in production; local and test profiles default to basic
+    certificates: []                                    # name + path (PEM) or name + not-after (yyyy-MM-dd)
 
 logging:
   pattern:
