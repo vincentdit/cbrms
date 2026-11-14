@@ -4,12 +4,32 @@ import { Router } from '@angular/router';
 import { catchError, from, switchMap, throwError } from 'rxjs';
 import { AuthService } from './auth.service';
 
+/** A request id. randomUUID exists only on HTTPS and localhost, so a LAN address over HTTP needs the fallback. */
+function correlationId(): string {
+  const webCrypto = globalThis.crypto;
+  if (typeof webCrypto?.randomUUID === 'function') {
+    return webCrypto.randomUUID();
+  }
+  const bytes = new Uint8Array(16);
+  if (typeof webCrypto?.getRandomValues === 'function') {
+    webCrypto.getRandomValues(bytes);
+  } else {
+    for (let i = 0; i < bytes.length; i++) {
+      bytes[i] = Math.floor(Math.random() * 256);
+    }
+  }
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = [...bytes].map((b) => b.toString(16).padStart(2, '0')).join('');
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
 /** Adds the sign-in header (never on public lookup calls) and a correlation ID; sends the user to sign-in on 401. */
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
   const auth = inject(AuthService);
   const router = inject(Router);
   const isPublic = req.url.startsWith('/public/');
-  const headers = req.headers.set('X-Correlation-Id', crypto.randomUUID());
+  const headers = req.headers.set('X-Correlation-Id', correlationId());
   if (isPublic || headers.has('Authorization')) {
     return next(req.clone({ headers }));
   }

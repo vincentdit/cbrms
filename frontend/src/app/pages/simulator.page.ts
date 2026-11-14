@@ -1,6 +1,7 @@
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ApiService, describeError } from '../core/api.service';
+import { AuthService } from '../core/auth.service';
 import { SettingsService } from '../core/settings.service';
 
 const RESULTS: Record<string, string> = {
@@ -23,6 +24,8 @@ const RESULTS: Record<string, string> = {
 
     @if (!settings.settings().simulator) {
       <p class="notice notice-alert">The simulator is switched off in this environment.</p>
+    } @else if (auth.readOnly()) {
+      <p class="notice">You can look at payments, but you cannot send one, cancel a bill, or change a deadline. Those stay with Finance.</p>
     } @else {
       <section class="block sim">
         <h2>Pay a control number</h2>
@@ -81,6 +84,7 @@ const RESULTS: Record<string, string> = {
 export class SimulatorPage {
   private readonly api = inject(ApiService);
   protected readonly settings = inject(SettingsService);
+  protected readonly auth = inject(AuthService);
   protected controlNumber = '';
   protected amount = '';
   protected transactionId = '';

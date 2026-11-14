@@ -26,6 +26,8 @@ services:
       interval: 5s
       timeout: 3s
       retries: 20
+    # Come back when Docker starts after a reboot, until someone stops the stack.
+    restart: unless-stopped
 
   cbrms:
     build: ./backend
@@ -46,7 +48,7 @@ services:
       - cbrms-net
     extra_hosts:
       - "host.docker.internal:host-gateway"   # lets CBRMS deliver events to a LIMS endpoint on your machine
-    restart: on-failure:5
+    restart: unless-stopped
 
   console:
     build: ./frontend
@@ -58,6 +60,7 @@ services:
       - "${CBRMS_WEB_PORT:-8086}:80"
     networks:
       - cbrms-net
+    restart: unless-stopped
 
 networks:
   cbrms-net:

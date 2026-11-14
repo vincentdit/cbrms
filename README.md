@@ -22,7 +22,7 @@ TIRDO Central Billing and Revenue Management System: the shared service that iss
 cd C:\dev\cbrms; docker compose up -d --build
 ```
 
-- Console: http://localhost:8086. Sign in as `finance.approver` / `approver-dev` (can approve), `finance.maker` / `maker-dev`, or `internal.auditor` / `auditor-dev` (Internal Audit: sees everything, changes nothing).
+- Console: http://localhost:8086. Sign in as `admin` / `admin-dev` (system administrator: sees everything, changes no money), `finance.approver` / `approver-dev` (can approve), `finance.maker` / `maker-dev`, or `internal.auditor` / `auditor-dev` (Internal Audit: sees everything, changes nothing).
 - Backend API: http://localhost:8085. The LIMS development client is `lims` / `lims-dev-secret` (HTTP Basic).
 
 ### Option B: Keycloak single sign-on

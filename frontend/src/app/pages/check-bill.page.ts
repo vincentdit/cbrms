@@ -17,6 +17,7 @@ import { StateComponent } from '../shared/state.component';
     <div class="signin">
       <section class="signin-panel check-panel" aria-labelledby="check-title" lang="en">
         <img src="tirdo-logo.jpg" alt="TIRDO" width="56" height="70" />
+        <p class="signin-kicker">TIRDO Central Billing and Revenue Management System</p>
         <h1 id="check-title">Check a TIRDO bill</h1>
         <p class="lede">Angalia bili yako ya TIRDO kwa namba ya malipo (control number).</p>
 

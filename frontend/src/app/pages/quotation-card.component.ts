@@ -2,12 +2,13 @@ import { Component, input } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { Quotation } from '../core/models';
 import { EatPipe, MoneyPipe } from '../shared/format';
+import { PlatformComponent } from '../shared/platform.component';
 import { StateComponent } from '../shared/state.component';
 
 /** One quotation: the agreed price, its milestones and which have been billed. */
 @Component({
   selector: 'app-quotation-card',
-  imports: [RouterLink, MoneyPipe, EatPipe, StateComponent],
+  imports: [RouterLink, MoneyPipe, EatPipe, StateComponent, PlatformComponent],
   template: `
     @let q = quotation();
     <article class="quote">
@@ -18,7 +19,7 @@ import { StateComponent } from '../shared/state.component';
           } @else {
             <h2 class="quote-title">{{ q.payerName }}</h2>
           }
-          <span class="sub">{{ q.sourceSystem.toUpperCase() }} quotation {{ q.quoteReference }} · {{ q.serviceName }}</span>
+          <span class="sub"><app-platform [code]="q.sourceSystem" /> quotation {{ q.quoteReference }} · {{ q.serviceName }}</span>
           <p class="quote-desc">{{ q.description }}</p>
         </div>
         <div class="quote-figures">
